@@ -26,7 +26,7 @@ function setup() {
   
   // Generate the Swirling Vortex Hole Texture
   holeTex = createGraphics(128, 128);
-  holeTex.background(10, 0, 20); // Dark void center
+  holeTex.background(10, 0, 20); 
   holeTex.noFill();
   for(let i = 0; i < 12; i++) {
     holeTex.stroke(150, 50, 255, 255 - (i * 20));
@@ -34,7 +34,7 @@ function setup() {
     holeTex.circle(64, 64, i * 10 + random(0, 5)); 
   }
   
-  // Initialize Balls
+  // Initialize Gas Giants
   for (let i = 0; i < numBalls; i++) {
     let m = random(2, 8); 
     let x = random(-boxSize / 3, boxSize / 3);
@@ -43,24 +43,23 @@ function setup() {
     balls.push(new Ball(x, y, z, m));
   }
 
-  // Offset the Z slightly (+1) to prevent Z-fighting with the back wall
   hole = new Hole(0, 0, 80); 
 }
 
 function draw() {
-  background(10, 10, 15); 
+  background(5, 5, 10); // Deep space background
   
   let totalKinetic = 0;
   let totalPotential = 0;
 
-  // Lighting setup 
-  ambientLight(100);
-  directionalLight(255, 255, 255, 0.5, 0.5, -1);
-  pointLight(255, 255, 255, 0, 0, 200);
+  // Cinematic Lighting Setup (Warm main sun, cool blue rim light)
+  ambientLight(40);
+  directionalLight(255, 240, 220, 1, 0.5, -1);
+  directionalLight(50, 80, 150, -1, -0.5, 1);
 
   orbitControl(2, 2, 0.1); 
 
-  // Draw the custom wireframe box (Fixes the opacity/blocking issue)
+  // Draw the custom wireframe box 
   drawWireframeBox(boxSize);
 
   // 1. Handle user-controlled hole movement
@@ -93,7 +92,7 @@ function draw() {
     }
   }
 
-  // 3. Apply Normal Gravity and Collisions between balls
+  // 3. Apply Normal Gravity and Collisions
   for (let i = 0; i < balls.length; i++) {
     for (let j = i + 1; j < balls.length; j++) {
       let distVec = p5.Vector.sub(balls[j].pos, balls[i].pos);
@@ -108,11 +107,10 @@ function draw() {
       balls[j].applyForce(force.copy().mult(-1)); 
 
       if (debug) {
-        let pe = -(G * balls[i].mass * balls[j].mass) / max(d, 10);
-        totalPotential += pe;
+        totalPotential += -(G * balls[i].mass * balls[j].mass) / max(d, 10);
       }
 
-      // Perfectly Elastic Collisions
+      // Perfectly Elastic Collisions (Core bouncing)
       let minDist = balls[i].r + balls[j].r;
       if (d < minDist && d > 0) { 
         let overlap = minDist - d;
@@ -136,7 +134,7 @@ function draw() {
     }
   }
 
-  // 4. Update, check capture, check walls, and render
+  // 4. Update and Render SOLID Planet Cores
   for (let i = balls.length - 1; i >= 0; i--) {
     let b = balls[i];
     b.update();
@@ -148,17 +146,24 @@ function draw() {
     }
 
     b.checkEdges(boxSize);
-    b.show();
+    b.showSolid();
     
     if (debug) {
       totalKinetic += 0.5 * b.mass * b.vel.magSq();
     }
   }
 
-  // 5. Render Attractors
+  // 5. Render VOLUMETRIC Atmospheres (2nd Pass)
+  // We disable the WebGL depth mask so the transparent gas clouds don't clip each other
+  drawingContext.depthMask(false);
+  noLights(); // Turn off lights so the atmospheres glow evenly
+  for (let b of balls) {
+    b.showAtmosphere();
+  }
   for (let a of attractors) {
     a.show();
   }
+  drawingContext.depthMask(true); // Re-enable for the next frame
 
   // 6. Render the HUD
   if (debug && hud) {
@@ -183,19 +188,17 @@ function draw() {
     push();
     resetMatrix();
     camera(0, 0, (height / 2.0) / tan(PI * 30.0 / 180.0), 0, 0, 0, 0, 1, 0);
-    noLights();
     imageMode(CENTER);
     image(hud, 0, 0);
     pop();
   }
 }
 
-// Function to draw a proper 3D wireframe so it doesn't block the balls
 function drawWireframeBox(size) {
-  let hs = size / 2; // half size
+  let hs = size / 2; 
   
   push();
-  stroke(0, 200, 255, 100); // Neon cyan, slightly transparent
+  stroke(0, 200, 255, 40); // Faded cyan so it doesn't distract from the planets
   strokeWeight(2);
   noFill();
   
@@ -236,7 +239,6 @@ function handleHoleMovement() {
 
 class Hole {
   constructor(x, y, r) {
-    // Offset by +1 to completely eliminate Z-fighting with the back wall lines
     this.pos = createVector(x, y, -boxSize / 2 + 1); 
     this.r = r;
   }
@@ -247,9 +249,7 @@ class Hole {
   checkCapture(ball) {
     if (ball.pos.z - ball.r <= -boxSize / 2 + 5) { 
       let d = dist(ball.pos.x, ball.pos.y, this.pos.x, this.pos.y);
-      if (d < this.r) {
-        return true;
-      }
+      if (d < this.r) { return true; }
     }
     return false;
   }
@@ -264,7 +264,6 @@ class Hole {
   }
 }
 
-// Raycasting for Mouse interactions
 function mousePressed() {
   mouseStartX = mouseX;
   mouseStartY = mouseY;
@@ -350,8 +349,11 @@ class Attractor {
     push();
     translate(this.pos.x, this.pos.y, this.pos.z);
     noStroke();
-    fill(255, 50, 50, 120); 
-    sphere(this.r, 16, 16); 
+    // Fade out smoothly
+    let alpha = map(this.timer, 0, 180, 0, 150);
+    fill(255, 50, 50, alpha); 
+    // Pulse effect
+    sphere(this.r + sin(frameCount * 0.2) * 5, 16, 16); 
     pop();
   }
 }
@@ -362,20 +364,35 @@ class Ball {
     this.vel = p5.Vector.random3D().mult(random(0.1, 0.8));
     this.acc = createVector(0, 0, 0);
     this.mass = m;
-    this.r = this.mass * 3; 
+    this.r = this.mass * 3.5; 
     
-    this.tex = createGraphics(128, 128);
+    // GENERATE PROCEDURAL GAS GIANT TEXTURE
+    this.baseHue = random(360);
+    this.tex = createGraphics(256, 128);
     this.tex.colorMode(HSB, 360, 100, 100);
-    let baseHue = random(360);
-    this.tex.background(baseHue, 80, 40); 
     this.tex.noStroke();
     
-    for (let i = 0; i < 128; i += random(4, 12)) {
-      this.tex.fill(baseHue + random(-20, 20), random(50, 100), random(60, 100), 0.8);
-      this.tex.rect(0, i, 128, random(4, 16));
+    // Random noise offsets so every planet is completely unique
+    let xOffBase = random(1000);
+    let yOffBase = random(1000);
+    
+    for (let py = 0; py < 128; py += 4) {
+      for (let px = 0; px < 256; px += 4) {
+        // High stretch on Y creates horizontal bands, swirl distorts them into storms
+        let swirl = noise(xOffBase + px * 0.05, yOffBase + py * 0.05) * 20;
+        let n = noise(xOffBase + px * 0.02, yOffBase + py * 0.1);
+        let n2 = noise(xOffBase + px * 0.01, yOffBase + (py + swirl) * 0.05);
+        
+        let hueVal = (this.baseHue + map(n2, 0, 1, -30, 30)) % 360;
+        if (hueVal < 0) hueVal += 360;
+        
+        let satVal = map(n, 0, 1, 40, 100);
+        let briVal = map(n2, 0, 1, 30, 90);
+        
+        this.tex.fill(hueVal, satVal, briVal);
+        this.tex.rect(px, py, 4, 4);
+      }
     }
-    this.tex.fill(baseHue + 40, 90, 90, 0.9);
-    this.tex.circle(random(128), random(128), random(20, 40));
   }
 
   applyForce(force) {
@@ -418,16 +435,32 @@ class Ball {
     }
   }
 
-  show() {
+  showSolid() {
     push();
     translate(this.pos.x, this.pos.y, this.pos.z);
     
+    // Rotate the planet based on its velocity to give it a tumbling spin
     let axis = createVector(this.vel.y, -this.vel.x, 0).normalize();
-    rotate(frameCount * 0.02, axis);
+    if (axis.magSq() > 0) {
+      rotate(frameCount * 0.02, axis);
+    }
 
     noStroke();
-    texture(this.tex); 
-    sphere(this.r, 16, 16); 
+    texture(this.tex); // Applies the diffuse gas texture
+    sphere(this.r, 24, 24); // High detail for the solid core
+    pop();
+  }
+
+  showAtmosphere() {
+    push();
+    translate(this.pos.x, this.pos.y, this.pos.z);
+    noStroke();
+    
+    // Render a slightly larger, transparent halo
+    colorMode(HSB, 360, 100, 100, 255);
+    fill(this.baseHue, 100, 100, 35); // 35 out of 255 opacity
+    sphere(this.r * 1.35, 16, 16); 
+    colorMode(RGB, 255);
     pop();
   }
 }
