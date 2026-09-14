@@ -1,6 +1,7 @@
 // 9/14/2026
 
-const debug = true; // Toggle for HUD and energy calculations
+var debug = true; 
+var allowWallAttractors = false; 
 
 let balls = [];
 let attractors = [];
@@ -13,6 +14,7 @@ const G = 5.0;
 let hud; 
 let cam; 
 let mouseStartX, mouseStartY;
+let holeTex;
 
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
@@ -22,6 +24,17 @@ function setup() {
     hud = createGraphics(windowWidth, windowHeight);
   }
   
+  // Generate the Swirling Vortex Hole Texture
+  holeTex = createGraphics(128, 128);
+  holeTex.background(10, 0, 20); // Dark void center
+  holeTex.noFill();
+  for(let i = 0; i < 12; i++) {
+    holeTex.stroke(150, 50, 255, 255 - (i * 20));
+    holeTex.strokeWeight(3);
+    holeTex.circle(64, 64, i * 10 + random(0, 5)); 
+  }
+  
+  // Initialize Balls
   for (let i = 0; i < numBalls; i++) {
     let m = random(2, 8); 
     let x = random(-boxSize / 3, boxSize / 3);
@@ -30,36 +43,31 @@ function setup() {
     balls.push(new Ball(x, y, z, m));
   }
 
-  // Create the goal hole on the BACK wall (Z = -boxSize/2)
-  hole = new Hole(0, 0, 80); // x, y, radius
+  // Offset the Z slightly (+1) to prevent Z-fighting with the back wall
+  hole = new Hole(0, 0, 80); 
 }
 
 function draw() {
-  background(15);
+  background(10, 10, 15); 
   
   let totalKinetic = 0;
   let totalPotential = 0;
 
-  // Lighting setup
-  ambientLight(60);
+  // Lighting setup 
+  ambientLight(100);
   directionalLight(255, 255, 255, 0.5, 0.5, -1);
-  pointLight(200, 200, 200, 0, 0, 200);
+  pointLight(255, 255, 255, 0, 0, 200);
 
   orbitControl(2, 2, 0.1); 
 
-  // Draw the bounding box
-  push();
-  noFill();
-  stroke(100);
-  strokeWeight(2);
-  box(boxSize);
-  pop();
+  // Draw the custom wireframe box (Fixes the opacity/blocking issue)
+  drawWireframeBox(boxSize);
 
-  // 1. Handle user-controlled hole movement on the back wall
+  // 1. Handle user-controlled hole movement
   handleHoleMovement();
   hole.show(); 
 
-  // 2. Process Attractors (Player Interactions)
+  // 2. Process Attractors 
   for (let i = attractors.length - 1; i >= 0; i--) {
     let a = attractors[i];
     a.timer--;
@@ -129,12 +137,10 @@ function draw() {
   }
 
   // 4. Update, check capture, check walls, and render
-  // Looping backwards so we can safely splice removed balls
   for (let i = balls.length - 1; i >= 0; i--) {
     let b = balls[i];
     b.update();
     
-    // Check if it falls into the hole on the back wall
     if (hole.checkCapture(b)) {
       balls.splice(i, 1);
       score++;
@@ -171,6 +177,8 @@ function draw() {
     hud.text(`Potential: ${totalPotential.toFixed(2)}`, 20, 125);
     hud.text(`Total: ${totalEnergy.toFixed(2)}`, 20, 150);
     hud.text(`Hole: WASD`, width - 110, 30);
+    hud.textSize(12);
+    hud.text(`Wall Attractors: ${allowWallAttractors ? 'ON' : 'OFF'}`, width - 150, 50);
 
     push();
     resetMatrix();
@@ -180,6 +188,35 @@ function draw() {
     image(hud, 0, 0);
     pop();
   }
+}
+
+// Function to draw a proper 3D wireframe so it doesn't block the balls
+function drawWireframeBox(size) {
+  let hs = size / 2; // half size
+  
+  push();
+  stroke(0, 200, 255, 100); // Neon cyan, slightly transparent
+  strokeWeight(2);
+  noFill();
+  
+  // Front face
+  line(-hs, -hs, hs, hs, -hs, hs);
+  line(hs, -hs, hs, hs, hs, hs);
+  line(hs, hs, hs, -hs, hs, hs);
+  line(-hs, hs, hs, -hs, -hs, hs);
+  
+  // Back face
+  line(-hs, -hs, -hs, hs, -hs, -hs);
+  line(hs, -hs, -hs, hs, hs, -hs);
+  line(hs, hs, -hs, -hs, hs, -hs);
+  line(-hs, hs, -hs, -hs, -hs, -hs);
+  
+  // Connecting lines
+  line(-hs, -hs, hs, -hs, -hs, -hs);
+  line(hs, -hs, hs, hs, -hs, -hs);
+  line(hs, hs, hs, hs, hs, -hs);
+  line(-hs, hs, hs, -hs, hs, -hs);
+  pop();
 }
 
 function windowResized() {
@@ -199,7 +236,8 @@ function handleHoleMovement() {
 
 class Hole {
   constructor(x, y, r) {
-    this.pos = createVector(x, y, -boxSize / 2); // Locked to the back wall
+    // Offset by +1 to completely eliminate Z-fighting with the back wall lines
+    this.pos = createVector(x, y, -boxSize / 2 + 1); 
     this.r = r;
   }
 
@@ -207,9 +245,7 @@ class Hole {
   moveY(val) { this.pos.y = constrain(this.pos.y + val, -boxSize/2 + this.r, boxSize/2 - this.r); }
 
   checkCapture(ball) {
-    // If the ball reaches the back wall...
-    if (ball.pos.z - ball.r <= -boxSize / 2 + 5) { // +5 is a tiny buffer for high speeds
-      // Check if it's within the 2D bounds of the hole
+    if (ball.pos.z - ball.r <= -boxSize / 2 + 5) { 
       let d = dist(ball.pos.x, ball.pos.y, this.pos.x, this.pos.y);
       if (d < this.r) {
         return true;
@@ -220,14 +256,10 @@ class Hole {
 
   show() {
     push();
-    // Move to the back wall
     translate(this.pos.x, this.pos.y, this.pos.z);
-    
-    // Draw a dark portal-like circle
-    fill(10, 0, 20); 
-    stroke(150, 50, 255);
-    strokeWeight(3);
-    circle(0, 0, this.r * 2); // p5's circle() takes diameter, so r * 2
+    noStroke();
+    texture(holeTex); 
+    circle(0, 0, this.r * 2); 
     pop();
   }
 }
@@ -260,7 +292,6 @@ function mouseReleased() {
   let hitPoint = null;
   let closestT = Infinity;
 
-  // 1. Check if ray hits balls
   for (let b of balls) {
     let L = p5.Vector.sub(b.pos, eye);
     let tca = L.dot(dir);
@@ -279,8 +310,7 @@ function mouseReleased() {
     }
   }
 
-  // 2. If no ball hit, hit the back of the box (Fixed capitalization bug here!)
-  if (!hitPoint) {
+  if (!hitPoint && allowWallAttractors) {
     let halfBox = boxSize / 2;
     
     let tx1 = (-halfBox - eye.x) / dir.x;
@@ -299,7 +329,6 @@ function mouseReleased() {
     tmax = min(tmax, max(tz1, tz2));
 
     if (tmax >= tmin && tmax > 0) {
-      // Changed 'P5' to 'p5'
       hitPoint = p5.Vector.add(eye, p5.Vector.mult(dir, tmax));
     }
   }
@@ -335,9 +364,18 @@ class Ball {
     this.mass = m;
     this.r = this.mass * 3; 
     
-    colorMode(HSB, 360, 100, 100);
-    this.col = color(random(360), 80, 90);
-    colorMode(RGB, 255);
+    this.tex = createGraphics(128, 128);
+    this.tex.colorMode(HSB, 360, 100, 100);
+    let baseHue = random(360);
+    this.tex.background(baseHue, 80, 40); 
+    this.tex.noStroke();
+    
+    for (let i = 0; i < 128; i += random(4, 12)) {
+      this.tex.fill(baseHue + random(-20, 20), random(50, 100), random(60, 100), 0.8);
+      this.tex.rect(0, i, 128, random(4, 16));
+    }
+    this.tex.fill(baseHue + 40, 90, 90, 0.9);
+    this.tex.circle(random(128), random(128), random(20, 40));
   }
 
   applyForce(force) {
@@ -383,9 +421,12 @@ class Ball {
   show() {
     push();
     translate(this.pos.x, this.pos.y, this.pos.z);
+    
+    let axis = createVector(this.vel.y, -this.vel.x, 0).normalize();
+    rotate(frameCount * 0.02, axis);
+
     noStroke();
-    specularMaterial(this.col);
-    shininess(50);
+    texture(this.tex); 
     sphere(this.r, 16, 16); 
     pop();
   }
