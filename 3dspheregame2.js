@@ -1,16 +1,16 @@
 // 9/14/2026
 
 let sim;
-const debug = true;
+var debug = true;
 var allowWallAttractors = false;
 
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
-  sim = new Simulation(600, 50); // Box size 600, 50 initial bodies
+  sim = new Simulation(600, 50); 
 }
 
 function draw() {
-  background(5, 5, 12); // Deep space background
+  background(5, 5, 12); 
 
   orbitControl(2, 2, 0.1);
 
@@ -50,9 +50,10 @@ class Simulation {
     this.mouseStartX = 0;
     this.mouseStartY = 0;
 
-    // Spawn bodies with a wider mass range to trigger the new types
     for (let i = 0; i < initialBodies; i++) {
-      let m = random(0.5, 12); // 0.5 to 1.5 = moon, 1.5 to 4 = terrestrial, 4 to 9 = gas giant, > 9 = sun
+      let m = 0.5 + exp(randomGaussian(0.4, 0.7)); 
+      m = constrain(m, 0.5, 20); 
+      
       let x = random(-this.boxSize / 3, this.boxSize / 3);
       let y = random(-this.boxSize / 3, this.boxSize / 3);
       let z = random(-this.boxSize / 3, this.boxSize / 3);
@@ -134,29 +135,24 @@ class Simulation {
   }
 
   render() {
-    // 1. Lighting Pass
     ambientLight(20);
-    // Dynamic lights from the suns
     let lightCount = 0;
     for (let b of this.bodies) {
-      if (b.type === 'sun' && lightCount < 3) { // Limit to 3 dynamic point lights for performance
+      if (b.type === 'sun' && lightCount < 3) { 
         pointLight(255, 200, 150, b.pos.x, b.pos.y, b.pos.z);
         lightCount++;
       }
     }
-    // Fallback directional light if no suns exist
+    
     if (lightCount === 0) {
       directionalLight(200, 200, 220, 1, 0.5, -1);
     }
 
-    // The Hole emits a faint purple glow
     pointLight(150, 50, 255, this.hole.pos.x, this.hole.pos.y, this.hole.pos.z + 50);
 
-    // 2. Draw Environment
     this.drawWireframeBox();
     this.hole.render();
 
-    // 3. Draw Solid Bodies
     for (let b of this.bodies) {
       b.renderSolid();
     }
@@ -164,7 +160,6 @@ class Simulation {
       a.render();
     }
 
-    // 4. Draw Atmospheres (Depth mask disabled for proper blending)
     drawingContext.depthMask(false);
     noLights();
     for (let b of this.bodies) {
@@ -172,7 +167,6 @@ class Simulation {
     }
     drawingContext.depthMask(true);
 
-    // 5. Draw HUD
     if (debug) {
       this.drawHUD();
     }
@@ -181,23 +175,20 @@ class Simulation {
   drawWireframeBox() {
     let hs = this.boxSize / 2;
     push();
-    stroke(80, 100, 150, 60); // Softer, more space-like grey-blue grid
+    stroke(80, 100, 150, 60); 
     strokeWeight(1);
     noFill();
     
-    // Front
     line(-hs, -hs, hs, hs, -hs, hs);
     line(hs, -hs, hs, hs, hs, hs);
     line(hs, hs, hs, -hs, hs, hs);
     line(-hs, hs, hs, -hs, -hs, hs);
     
-    // Back
     line(-hs, -hs, -hs, hs, -hs, -hs);
     line(hs, -hs, -hs, hs, hs, -hs);
     line(hs, hs, -hs, -hs, hs, -hs);
     line(-hs, hs, -hs, -hs, -hs, -hs);
     
-    // Connectors
     line(-hs, -hs, hs, -hs, -hs, -hs);
     line(hs, -hs, hs, hs, -hs, -hs);
     line(hs, hs, hs, hs, hs, -hs);
@@ -239,7 +230,6 @@ class Simulation {
     let hitPoint = null;
     let closestT = Infinity;
 
-    // Check bodies
     for (let b of this.bodies) {
       let L = p5.Vector.sub(b.pos, eye);
       let tca = L.dot(dir);
@@ -255,7 +245,6 @@ class Simulation {
       }
     }
 
-    // Check walls
     if (!hitPoint && allowWallAttractors) {
       let hs = this.boxSize / 2;
       let tx1 = (-hs - eye.x) / dir.x; let tx2 = (hs - eye.x) / dir.x;
@@ -327,16 +316,22 @@ class Entity {
 class CelestialBody extends Entity {
   constructor(x, y, z, m) {
     super(x, y, z, m);
-    this.r = this.mass * 3.5;
+    
+    this.r = Math.cbrt(this.mass) * 12; 
     this.vel = p5.Vector.random3D().mult(random(0.1, 0.8));
     
-    // Determine type based on mass thresholds
     if (this.mass > 9) {
       this.type = 'sun';
     } else if (this.mass > 4) {
       this.type = 'gas_giant';
     } else if (this.mass > 1.5) {
       this.type = 'terrestrial';
+      // Pick a random terrestrial biome
+      let biomeRoll = random();
+      if (biomeRoll < 0.3) this.biome = 'earth';
+      else if (biomeRoll < 0.6) this.biome = 'mars';
+      else if (biomeRoll < 0.8) this.biome = 'venus';
+      else this.biome = 'ice';
     } else {
       this.type = 'moon';
     }
@@ -351,7 +346,7 @@ class CelestialBody extends Entity {
     let bx = random(1000); let by = random(1000);
 
     if (this.type === 'sun') {
-      this.baseHue = random(30, 60); // Yellow/Orange
+      this.baseHue = random(30, 60); 
       for (let py = 0; py < 128; py+=4) {
         for (let px = 0; px < 256; px+=4) {
           let n = noise(bx + px*0.05, by + py*0.05);
@@ -370,25 +365,41 @@ class CelestialBody extends Entity {
         }
       }
     } else if (this.type === 'terrestrial') {
+      this.tex.colorMode(RGB, 255);
       for (let py = 0; py < 128; py+=4) {
         for (let px = 0; px < 256; px+=4) {
           let n = noise(bx + px*0.03, by + py*0.03);
-          if (n < 0.5) { // Ocean
-            this.tex.fill(210, 80, 40); 
-          } else if (n < 0.7) { // Land
-            this.tex.fill(120, 60, 50);
-          } else { // Mountains/Ice
-            this.tex.fill(0, 0, 90);
+          
+          if (this.biome === 'earth') {
+            if (n < 0.5) this.tex.fill(30, 80, 180); // Ocean
+            else if (n < 0.7) this.tex.fill(60, 140, 50); // Land
+            else this.tex.fill(230, 230, 240); // Mountains/Ice
+          } 
+          else if (this.biome === 'mars') {
+            if (n < 0.4) this.tex.fill(160, 70, 40); // Deep rusty lowlands
+            else if (n < 0.8) this.tex.fill(200, 100, 60); // Orange/red dunes
+            else this.tex.fill(220, 200, 180); // Dry CO2 polar caps / high peaks
+          }
+          else if (this.biome === 'venus') {
+            if (n < 0.6) this.tex.fill(180, 150, 50); // Sulfur plains
+            else if (n < 0.8) this.tex.fill(120, 90, 40); // Darker basalt
+            else this.tex.fill(220, 180, 80); // High temp glowing areas
+          }
+          else if (this.biome === 'ice') {
+            if (n < 0.4) this.tex.fill(180, 220, 255); // Thick ice sheets
+            else if (n < 0.7) this.tex.fill(100, 160, 220); // Cracked ice/water
+            else this.tex.fill(240, 250, 255); // Pure snow
           }
           this.tex.rect(px, py, 4, 4);
         }
       }
-    } else { // Moon
+    } else { 
+      // Moons (Mercury/Luna style)
       for (let py = 0; py < 128; py+=4) {
         for (let px = 0; px < 256; px+=4) {
           let n = noise(bx + px*0.1, by + py*0.1);
           this.tex.colorMode(RGB, 255);
-          let gray = map(n, 0, 1, 100, 200);
+          let gray = map(n, 0, 1, 80, 160); // Darker gray for basaltic rock
           this.tex.fill(gray, gray, gray);
           this.tex.rect(px, py, 4, 4);
         }
@@ -420,7 +431,7 @@ class CelestialBody extends Entity {
 
     noStroke();
     if (this.type === 'sun') {
-      emissiveMaterial(this.tex.get(128,64)); // Sun glows using emissive light
+      emissiveMaterial(this.tex.get(128,64)); 
     }
     texture(this.tex);
     sphere(this.r, 24, 24);
@@ -428,7 +439,7 @@ class CelestialBody extends Entity {
   }
 
   renderAtmosphere() {
-    if (this.type === 'moon') return; // Moons have no atmosphere
+    if (this.type === 'moon') return; 
 
     push();
     translate(this.pos.x, this.pos.y, this.pos.z);
@@ -443,7 +454,12 @@ class CelestialBody extends Entity {
       sphere(this.r * 1.35, 16, 16);
       colorMode(RGB, 255);
     } else if (this.type === 'terrestrial') {
-      fill(100, 150, 255, 40); // Thin blue atmosphere
+      // Atmospheric color depends on biome
+      if (this.biome === 'earth') fill(100, 150, 255, 40); // Blue N2/O2
+      else if (this.biome === 'mars') fill(200, 100, 50, 30); // Thin rusty CO2 dust
+      else if (this.biome === 'venus') fill(200, 180, 50, 70); // Thick yellow sulfur
+      else if (this.biome === 'ice') fill(200, 230, 255, 45); // Bright white/cyan haze
+      
       sphere(this.r * 1.2, 16, 16);
     }
     pop();
@@ -455,7 +471,7 @@ class CelestialBody extends Entity {
 // ==========================================
 class Hole extends Entity {
   constructor(x, y, z, r) {
-    super(x, y, z, Infinity); // Infinite mass (doesn't move via physics)
+    super(x, y, z, Infinity); 
     this.r = r;
   }
 
@@ -473,12 +489,10 @@ class Hole extends Entity {
     push();
     translate(this.pos.x, this.pos.y, this.pos.z);
     
-    // Inner black void (flat against the wall)
     noStroke();
     fill(0);
     plane(this.r * 1.8);
 
-    // Mechanical rotating rings
     strokeWeight(1);
     noFill();
     
@@ -529,7 +543,6 @@ class Attractor extends Entity {
     noFill();
     stroke(0, 255, 255, map(this.timer, 0, 180, 0, 255));
     strokeWeight(2);
-    // Draw a sharp crystal/beacon shape instead of a sphere
     sphere(15, 4, 2); 
     pop();
   }
