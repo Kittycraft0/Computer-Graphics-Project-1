@@ -6,6 +6,8 @@ var allowWallAttractors = false;
 
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
+  // Increase global noise detail for more fractal, realistic textures
+  noiseDetail(6, 0.5);
   sim = new Simulation(600, 50); 
 }
 
@@ -68,7 +70,6 @@ class Simulation {
   update() {
     this.handleHoleMovement();
 
-    // Attractor gravity
     for (let i = this.attractors.length - 1; i >= 0; i--) {
       let a = this.attractors[i];
       a.update();
@@ -81,13 +82,11 @@ class Simulation {
       }
     }
 
-    // Body-to-body gravity and collisions
     for (let i = 0; i < this.bodies.length; i++) {
       for (let j = i + 1; j < this.bodies.length; j++) {
         let b1 = this.bodies[i];
         let b2 = this.bodies[j];
 
-        // Gravity
         let distVec = p5.Vector.sub(b2.pos, b1.pos);
         let distSq = distVec.magSq();
         let d = sqrt(distSq);
@@ -98,7 +97,6 @@ class Simulation {
         b1.applyForce(force);
         b2.applyForce(force.copy().mult(-1));
 
-        // Perfectly Elastic Collisions
         let minDist = b1.r + b2.r;
         if (d < minDist && d > 0) {
           let overlap = minDist - d;
@@ -121,7 +119,6 @@ class Simulation {
       }
     }
 
-    // Update bodies and check capture
     for (let i = this.bodies.length - 1; i >= 0; i--) {
       let b = this.bodies[i];
       b.update();
@@ -135,17 +132,21 @@ class Simulation {
   }
 
   render() {
-    ambientLight(20);
+    ambientLight(25);
     let lightCount = 0;
     for (let b of this.bodies) {
       if (b.type === 'sun' && lightCount < 3) { 
-        pointLight(255, 200, 150, b.pos.x, b.pos.y, b.pos.z);
+        // Sun light color matches its generated texture color
+        colorMode(HSB, 360, 100, 100);
+        let lx = b.pos.x; let ly = b.pos.y; let lz = b.pos.z;
+        pointLight(b.sunHue, b.sunSat, 100, lx, ly, lz);
+        colorMode(RGB, 255);
         lightCount++;
       }
     }
     
     if (lightCount === 0) {
-      directionalLight(200, 200, 220, 1, 0.5, -1);
+      directionalLight(220, 215, 210, 1, 0.5, -1);
     }
 
     pointLight(150, 50, 255, this.hole.pos.x, this.hole.pos.y, this.hole.pos.z + 50);
@@ -326,7 +327,6 @@ class CelestialBody extends Entity {
       this.type = 'gas_giant';
     } else if (this.mass > 1.5) {
       this.type = 'terrestrial';
-      // Pick a random terrestrial biome
       let biomeRoll = random();
       if (biomeRoll < 0.3) this.biome = 'earth';
       else if (biomeRoll < 0.6) this.biome = 'mars';
@@ -341,65 +341,104 @@ class CelestialBody extends Entity {
   }
 
   generateTexture() {
-    this.tex.colorMode(HSB, 360, 100, 100);
+    this.tex.colorMode(HSB, 360, 100, 100, 100);
     this.tex.noStroke();
     let bx = random(1000); let by = random(1000);
 
     if (this.type === 'sun') {
-      this.baseHue = random(30, 60); 
+      // Realistic Stellar Blackbody Spectrum
+      let starType = random();
+      if (starType < 0.3) { this.sunHue = 0; this.sunSat = 60; } // Red Dwarf
+      else if (starType < 0.6) { this.sunHue = 35; this.sunSat = 40; } // G-Type (Yellow/White)
+      else { this.sunHue = 220; this.sunSat = 20; } // Blue/White Giant
+
       for (let py = 0; py < 128; py+=4) {
         for (let px = 0; px < 256; px+=4) {
           let n = noise(bx + px*0.05, by + py*0.05);
-          this.tex.fill(this.baseHue, map(n,0,1,80,100), map(n,0,1,80,100));
+          let b = map(n, 0, 1, 70, 100);
+          this.tex.fill(this.sunHue, this.sunSat + map(n,0,1,-10,10), b);
           this.tex.rect(px, py, 4, 4);
         }
       }
+
     } else if (this.type === 'gas_giant') {
-      this.baseHue = random(360);
+      // Realistic Gas Giants: Jovian (Brown/Red/Cream) or Neptunian (Blue/Cyan)
+      let isJovian = random() > 0.5;
+      let baseHue = isJovian ? random(15, 45) : random(180, 220);
+      let satMult = isJovian ? random(0.4, 0.7) : random(0.6, 0.9); // Jovians are less saturated
+
       for (let py = 0; py < 128; py+=4) {
         for (let px = 0; px < 256; px+=4) {
-          let swirl = noise(bx + px*0.05, by + py*0.05) * 20;
-          let n2 = noise(bx + px*0.01, by + (py + swirl)*0.05);
-          this.tex.fill((this.baseHue + map(n2,0,1,-30,30))%360, 80, 70);
+          // Combination of turbulence and sine-wave banding
+          let turb = noise(bx + px*0.02, by + py*0.04);
+          let band = sin((py * 0.15) + (turb * 4.0));
+          
+          let hOffset = map(turb, 0, 1, -15, 15);
+          let s = map(band, -1, 1, 30, 90) * satMult;
+          let b = map(band, -1, 1, 40, 90);
+          
+          let finalHue = (baseHue + hOffset + 360) % 360;
+          this.tex.fill(finalHue, s, b);
           this.tex.rect(px, py, 4, 4);
         }
       }
+
     } else if (this.type === 'terrestrial') {
       this.tex.colorMode(RGB, 255);
       for (let py = 0; py < 128; py+=4) {
         for (let px = 0; px < 256; px+=4) {
           let n = noise(bx + px*0.03, by + py*0.03);
           
+          // SURFACE PASS
           if (this.biome === 'earth') {
-            if (n < 0.5) this.tex.fill(30, 80, 180); // Ocean
-            else if (n < 0.7) this.tex.fill(60, 140, 50); // Land
-            else this.tex.fill(230, 230, 240); // Mountains/Ice
+            if (n < 0.55) this.tex.fill(15, 45, 80); // Deep, realistic dark ocean
+            else if (n < 0.6) this.tex.fill(40, 90, 120); // Shallows
+            else if (n < 0.8) this.tex.fill(60, 90, 40); // Muted green/brown land
+            else this.tex.fill(180, 170, 160); // Muted mountains
           } 
           else if (this.biome === 'mars') {
-            if (n < 0.4) this.tex.fill(160, 70, 40); // Deep rusty lowlands
-            else if (n < 0.8) this.tex.fill(200, 100, 60); // Orange/red dunes
-            else this.tex.fill(220, 200, 180); // Dry CO2 polar caps / high peaks
+            if (n < 0.4) this.tex.fill(120, 50, 30); // Darker basalt/iron
+            else if (n < 0.8) this.tex.fill(180, 80, 50); // Muted rust dunes
+            else this.tex.fill(210, 190, 180); // CO2 poles
           }
           else if (this.biome === 'venus') {
-            if (n < 0.6) this.tex.fill(180, 150, 50); // Sulfur plains
-            else if (n < 0.8) this.tex.fill(120, 90, 40); // Darker basalt
-            else this.tex.fill(220, 180, 80); // High temp glowing areas
+            // Venus is entirely cloud-covered, so we bake the clouds directly
+            let vClouds = noise(bx + px*0.05, by + py*0.02);
+            let c = map(vClouds, 0, 1, 150, 240);
+            this.tex.fill(c, c*0.9, c*0.6); // Sickly yellow/white
           }
           else if (this.biome === 'ice') {
-            if (n < 0.4) this.tex.fill(180, 220, 255); // Thick ice sheets
-            else if (n < 0.7) this.tex.fill(100, 160, 220); // Cracked ice/water
-            else this.tex.fill(240, 250, 255); // Pure snow
+            let crack = abs(noise(bx + px*0.05, by + py*0.05) - 0.5);
+            if (crack < 0.03) this.tex.fill(20, 60, 100); // Deep blue sub-surface water cracks
+            else if (n < 0.6) this.tex.fill(160, 200, 220); // Old ice
+            else this.tex.fill(220, 240, 255); // Fresh snow/ice
           }
           this.tex.rect(px, py, 4, 4);
+
+          // CLOUD PASS (Overlays white noise on Earth/Mars)
+          if (this.biome === 'earth' || this.biome === 'mars') {
+            let cloudNoise = noise(bx + 100 + px*0.04, by + 100 + py*0.04);
+            if (cloudNoise > 0.6) {
+              let alpha = map(cloudNoise, 0.6, 1.0, 0, 200);
+              let cColor = this.biome === 'earth' ? 255 : 200; // Earth has white clouds, Mars has dusty clouds
+              this.tex.fill(cColor, cColor, cColor, alpha);
+              this.tex.rect(px, py, 4, 4);
+            }
+          }
         }
       }
+
     } else { 
-      // Moons (Mercury/Luna style)
+      // MOONS - High contrast cratering
+      this.tex.colorMode(RGB, 255);
       for (let py = 0; py < 128; py+=4) {
         for (let px = 0; px < 256; px+=4) {
-          let n = noise(bx + px*0.1, by + py*0.1);
-          this.tex.colorMode(RGB, 255);
-          let gray = map(n, 0, 1, 80, 160); // Darker gray for basaltic rock
+          let n = noise(bx + px*0.08, by + py*0.08);
+          // Abs trick to make crater-like ridges
+          let crater = abs(noise(bx + 50 + px*0.1, by + 50 + py*0.1) - 0.5);
+          let gray = map(n, 0, 1, 60, 140);
+          if (crater < 0.1) gray -= 30; // Darker impact zones
+          
           this.tex.fill(gray, gray, gray);
           this.tex.rect(px, py, 4, 4);
         }
@@ -439,28 +478,26 @@ class CelestialBody extends Entity {
   }
 
   renderAtmosphere() {
-    if (this.type === 'moon') return; 
+    if (this.type === 'moon' || this.biome === 'venus') return; // Venus clouds are baked in, Moons have none
 
     push();
     translate(this.pos.x, this.pos.y, this.pos.z);
     noStroke();
     
     if (this.type === 'sun') {
-      fill(255, 200, 100, 60);
+      colorMode(HSB, 360, 100, 100, 100);
+      fill(this.sunHue, this.sunSat, 100, 30);
       sphere(this.r * 1.5, 16, 16);
-    } else if (this.type === 'gas_giant') {
-      colorMode(HSB, 360, 100, 100, 255);
-      fill(this.baseHue, 100, 100, 35);
-      sphere(this.r * 1.35, 16, 16);
       colorMode(RGB, 255);
+    } else if (this.type === 'gas_giant') {
+      fill(255, 255, 255, 25); // Subtle white haze over the vibrant clouds
+      sphere(this.r * 1.25, 16, 16);
     } else if (this.type === 'terrestrial') {
-      // Atmospheric color depends on biome
-      if (this.biome === 'earth') fill(100, 150, 255, 40); // Blue N2/O2
-      else if (this.biome === 'mars') fill(200, 100, 50, 30); // Thin rusty CO2 dust
-      else if (this.biome === 'venus') fill(200, 180, 50, 70); // Thick yellow sulfur
-      else if (this.biome === 'ice') fill(200, 230, 255, 45); // Bright white/cyan haze
+      if (this.biome === 'earth') fill(80, 150, 255, 45); // Classic atmospheric scattering
+      else if (this.biome === 'mars') fill(200, 100, 50, 20); // Very thin dust
+      else if (this.biome === 'ice') fill(200, 230, 255, 30); // Frigid haze
       
-      sphere(this.r * 1.2, 16, 16);
+      sphere(this.r * 1.15, 16, 16);
     }
     pop();
   }
