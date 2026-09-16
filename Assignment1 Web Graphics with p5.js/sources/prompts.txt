@@ -1,0 +1,73 @@
+File made 9/16/2026
+Google Gemini Pro Extended
+
+
+make a p5.js javascript 3d game that has a bunch of balls in a box. MAKE THE BALLS HAVE GRAVITATIONAL ATTRACTION. TO EACH OTHER, NOT TO A CENTRAL OBJECT. make 50 of these balls. yes i know it will lag. i'll request more features after you complete this request.
+.
+are your collisions perfectly elastic? does the velocity have 0 dampers? cuz this fell into a ball quite quickly. don't remove energy i didn't ask for a physically inconsistent system. and i separated the script into a separate file. remake the script please.
+.
+remember to always put the date at the top of the script like so:
+
+// 9/11/2026
+
+let balls = [];
+const numBalls = 50;
+const boxSize = 600;
+const G = 1.5; // Universal Gravitational Constant
+
+function setup() {
+  createCanvas(windowWidth, windowHeight, WEBGL);
+  
+  // Initialize balls with random positions and masses
+  for (let i = 0; i < numBalls; i++) {
+    let m = random(2, 8); // Mass
+
+
+
+make a little indicator of the total energy in the system in the top left or top right of the screen. i feel like drawing the text directly onto the canvas would be a better indicator. i'll use the energy variation as a determining factor in whether or not i'll ask you to use better symplectic integrators for the gravity later.
+.
+make gravity follow the real gravity pattern where it has the /r^2 factor according to the equation from physics. if you already did that then tell me and i'll just turn up the value. turn down initial velocities. make a boolean variable called debug defined as true at the top of the code that when enabled shows the debug text with the energies and stuff you wrote.
+.
+okay now i guess the energy looks like it naturally varies between -600 potential and -1300 potential and then it all went into a ball that started like spinning and then it started spinning so fast that the gravity wasn't enough to hold some of the balls with it and then they started leaving the ball in the middle as the potential energy was converted to kinetic energy and then it's just kinda like a system where they're either in a ball that starts spinning fast enough to destroy itself or else they are away from the ball and then slowly fall back into the ball. i don't know how or why this system actually works decently enough like this but it does. how nice.
+.
+okay anyways now make it when the player clicks on the bounding box or on a ball then on the surface of the ball or on the back of the box where the player clicked there is placed a mostly transparent red ball that the other balls are attracted to that disappears after a few seconds or something, stopping the affect on the balls. this is to be used as a way for the player to interact with the system and eventually say try to get the balls into a goal in one side of the wall or something.
+.
+can you make a movable hole that i try to get the balls into
+.
+today is 9/14/2026 by the way
+okay i guess the wall clicks don't anymore work why
+maybe this makes it more strategic thought
+this purple "hole" thing is legit just a sphere in the middle of the screen. i want a hole in the bounding box that i try to get things into.
+.
+make debug a var so it can be changed in the console
+make the ability to click on the wall and place attractors on the wall. i can just click and spam on the hole and it just turns into a game of spamming click on the hole until they all fall in. i don't want the functionality to go away though so that's why i want it to be a toggle that defaults to off.
+can you also give the balls and bounding box a texture that isn't so basic
+.
+i can't see the balls
+the target is z fighting with the box wall
+some sides of the box wall seem to be drawn over other sides
+i can't see the balls cuz i think the faces of the box are not transparent and are drawn over the balls
+.
+"Fixed Z-Fighting: I pushed the hole forward by a tiny fraction (-boxSize / 2 + 1). This pulls it just slightly off the back wall, eliminating the flickering completely while keeping the physics accurate." if you fixed the issue of the box being opaque then the hole shouldn't be having issues like that. either way the issue is fixed so nice. i see the target and the ball textures now. idk they look a bit tacky imo, can you add like volumentric whatever to the "gas giant" balls so they look less like marbles and more like... planets with atmospheres or gas giants
+.
+does this use encapsulation for more easy expansion? e.g. say a data structure and a ball class that allows the ball to have its own data and a constructor for the map. if that doesn't exist can you make it better?
+the red attractor thing now growing and shrinking like that makes it look like it is moving towards and away from the camera. now the color of the attractor, the red, looks kinda like the colors of the planets, and looks a bit hard to distinguish. do you have any ideas to fix that issue?
+the target still looks tacky.
+the planets look cool, a bit reminiscent of early roblox games, of which i personally like some of the style of lol. i wonder if it passes in a computer graphics class though.
+.
+woah woah woah!!! i'm still exporting this to a javascript file in vscode!!! what are you doing??? i never asked for a single file application!!! are you nuts???
+i like the new look of the attractor. the target looks better now but idk it still looks a bit tacky. can you make different like cutoffs for different types of balls? like some that are very large are like suns that emit light. the target should emit light. moderately sized balls are the current gas giants. smaller balls are like planets with a different continential texture under the atmosphere. super tiny balls are like moons that don't have an atmosphere. currently it looks very dark and at the same time quite neon and retro. i want to move a bit away from that and a bit more towards like a spacey thing. and i already have the html thing i'm copy pasting your files to a javascript file so i can commit changes and label what was changed and have my final file stored in vscode. again i never asked you to make an app.
+.
+there are too many suns, can you randomize the masses better by like picking them from a skewed right gaussian distribution with a good domain so that more balls are small and less are large but not very many are like super tiny? also make sure that the size is proportional to the mass in a realistic manner.
+.
+lol are these planet textures procedurally generated? like now more than half of them look like earth, but i think the textures are not earth. are the textures the same as each other? cool if not. can you add other planet types so not all the terrestrial planets or whatever look like earth? like mars and venus and mercury exist and those don't look habitable
+.
+i think it looks quite nice now. the gas giants not being gas giant color e.g. green sometimes though isn't perhaps the best thing in the world, unless those exist somewhere in the universe regularly??? can you fix that as well as make them all look a lot more realistic?
+.
+we can still consider what they might look like in other solar systems, the same for planets and moons and suns as well. if there doesn't exist at least one of each type upon initialziation then fix that cuz we gotta have that variety. can you make the atmospheres look more realistic and also kinda make the textures/atmospheres reflect the collisions between planets somehow?
+.
+[all of file so far] is that good to put in a prompts.txt file for submission?
+.
+okay when the balls collide i want it to look more real. it looks like currently it's just there's a red filter put over everything for a set time or something before it abruptly turns off. i want the red to fade. i also want the collision to reflect a red or something circle on the texture of the planet corresponding to the place of collision, make it collision colored and look realistic comparable to a collision. make the mass of the object colliding and the mass of the object collided with and/or (potentially or cuz mass is a part of momentum) the momentum so that if a heavy object and a light object get into a high momentum collision then the light object is much more affected. also how did you manage objects being able to get so close to the attractor without flinging away, keeping their obits so fast yet so clean? i tried to do that for like years and it never worked no matter what i tried, and you just did it without even mentioning that massive feat.
+i don't think a prompt header is required for each prompt in the file
+.
