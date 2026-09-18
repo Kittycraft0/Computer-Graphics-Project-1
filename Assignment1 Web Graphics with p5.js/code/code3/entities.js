@@ -1,20 +1,159 @@
-// Rodrigues' rotation formula
+// 9/18/2026
+
+class Quaternion {
+    constructor(w = 1, x = 0, y = 0, z = 0) {
+        this.w = w; this.x = x; this.y = y; this.z = z;
+    }
+    mult(q) {
+        return new Quaternion(
+            this.w * q.w - this.x * q.x - this.y * q.y - this.z * q.z,
+            this.w * q.x + this.x * q.w + this.y * q.z - this.z * q.y,
+            this.w * q.y - this.x * q.z + this.y * q.w + this.z * q.x,
+            this.w * q.z + this.x * q.y - this.y * q.x + this.z * q.w
+        );
+    }
+    normalize() {
+        let mag = sqrt(this.w*this.w + this.x*this.x + this.y*this.y + this.z*this.z);
+        this.w /= mag; this.x /= mag; this.y /= mag; this.z /= mag;
+        return this;
+    }
+    static fromAxisAngle(axis, angle) {
+        let halfAngle = angle / 2;
+        let s = sin(halfAngle);
+        return new Quaternion(cos(halfAngle), axis.x * s, axis.y * s, axis.z * s);
+    }
+    rotateVector(v) {
+        let qVec = new Quaternion(0, v.x, v.y, v.z);
+        let qInv = new Quaternion(this.w, -this.x, -this.y, -this.z);
+        let res = this.mult(qVec).mult(qInv);
+        return createVector(res.x, res.y, res.z);
+    }
+    toAxisAngle() {
+        let angle = 2 * acos(this.w);
+        let s = sqrt(1 - this.w*this.w);
+        if (s < 0.001) { return { axis: createVector(1, 0, 0), angle: 0 }; }
+        return { axis: createVector(this.x/s, this.y/s, this.z/s), angle: angle };
+    }
+}
+
 function rotateAroundAxis(v, k, theta) {
   let cosT = cos(theta);
   let sinT = sin(theta);
-  
   let term1 = p5.Vector.mult(v, cosT);
   let crossKV = k.copy().cross(v);
   let term2 = p5.Vector.mult(crossKV, sinT);
   let dotKV = k.dot(v);
   let term3 = p5.Vector.mult(k, dotKV * (1 - cosT));
-  
   return p5.Vector.add(term1, p5.Vector.add(term2, term3));
 }
 
 // ==========================================
-// BASE ENTITY CLASS
+// PLAYER SHIP CLASS
 // ==========================================
+class Ship {
+    constructor(x, y, z) {
+        this.pos = createVector(x, y, z);
+        this.vel = createVector(0, 0, 0);
+        this.orientation = new Quaternion(); 
+        
+        this.radius = 8; 
+        this.mass = 0.2; 
+        
+        this.angularVel = createVector(0, 0, 0);
+        this.angularAccel = 0.004;
+        this.angularDrag = 0.90; 
+        
+        // Lowered from 0.2 to give the ship more grounded weight and a lower top speed
+        this.accelerationLimit = 0.08; 
+        this.drag = 0.97; 
+    }
+
+    handleInput() {
+        // --- ROTATION (Arrow Keys) ---
+        if (keyIsDown(UP_ARROW)) this.angularVel.x -= this.angularAccel;     // Pitch Up
+        if (keyIsDown(DOWN_ARROW)) this.angularVel.x += this.angularAccel;   // Pitch Down
+        
+        if (keyIsDown(LEFT_ARROW)) this.angularVel.y += this.angularAccel;   // Yaw Left
+        if (keyIsDown(RIGHT_ARROW)) this.angularVel.y -= this.angularAccel;  // Yaw Right
+
+        // --- LINEAR MOVEMENT (WSADEQ) ---
+        let localMove = createVector(0, 0, 0);
+        
+        if (keyIsDown(87)) localMove.z -= 1; // W (Forward Thrust)
+        if (keyIsDown(83)) localMove.z += 1; // S (Backward Thrust)
+        
+        if (keyIsDown(65)) localMove.x -= 1; // A (Strafe Left)
+        if (keyIsDown(68)) localMove.x += 1; // D (Strafe Right)
+        
+        if (keyIsDown(69)) localMove.y -= 1; // E (Strafe Up)
+        if (keyIsDown(81)) localMove.y += 1; // Q (Strafe Down)
+
+        if (localMove.magSq() > 0) {
+            localMove.normalize();
+            let worldDir = this.orientation.rotateVector(localMove);
+            this.vel.add(worldDir.mult(this.accelerationLimit));
+        }
+    }
+
+    fire() {
+        let localFwd = createVector(0, 0, -1);
+        let worldFwd = this.orientation.rotateVector(localFwd);
+        
+        let spawnPos = p5.Vector.add(this.pos, p5.Vector.mult(worldFwd, this.radius * 2.5));
+        let projVel = p5.Vector.add(this.vel, p5.Vector.mult(worldFwd, 20));
+        
+        return new Attractor(spawnPos.x, spawnPos.y, spawnPos.z, projVel);
+    }
+
+    update(bSize) {
+        this.angularVel.mult(this.angularDrag);
+        if (this.angularVel.x !== 0) {
+            let qPitch = Quaternion.fromAxisAngle(createVector(1, 0, 0), this.angularVel.x);
+            this.orientation = this.orientation.mult(qPitch).normalize();
+        }
+        if (this.angularVel.y !== 0) {
+            let qYaw = Quaternion.fromAxisAngle(createVector(0, 1, 0), this.angularVel.y);
+            this.orientation = this.orientation.mult(qYaw).normalize();
+        }
+
+        this.vel.mult(this.drag);
+        this.pos.add(this.vel);
+
+        let halfBox = bSize / 2;
+        if (this.pos.x > halfBox - this.radius) { this.pos.x = halfBox - this.radius; this.vel.x *= -0.8; }
+        if (this.pos.x < -halfBox + this.radius) { this.pos.x = -halfBox + this.radius; this.vel.x *= -0.8; }
+        if (this.pos.y > halfBox - this.radius) { this.pos.y = halfBox - this.radius; this.vel.y *= -0.8; }
+        if (this.pos.y < -halfBox + this.radius) { this.pos.y = -halfBox + this.radius; this.vel.y *= -0.8; }
+        if (this.pos.z > halfBox - this.radius) { this.pos.z = halfBox - this.radius; this.vel.z *= -0.8; }
+        if (this.pos.z < -halfBox + this.radius) { this.pos.z = -halfBox + this.radius; this.vel.z *= -0.8; }
+    }
+
+    render() {
+        push();
+        translate(this.pos.x, this.pos.y, this.pos.z);
+        
+        let axisAngle = this.orientation.toAxisAngle();
+        if (axisAngle.angle !== 0) {
+            rotate(axisAngle.angle, axisAngle.axis);
+        }
+
+        noStroke();
+        fill(200, 200, 220);
+        push();
+        rotateX(-PI/2); 
+        cone(this.radius, this.radius * 2.5);
+        pop();
+
+        push();
+        translate(0, 0, this.radius * 1.25);
+        fill(0, 200, 255);
+        box(this.radius * 1.2);
+        pop();
+        
+        pop();
+    }
+}
+
 class Entity {
   constructor(x, y, z, m) {
     this.pos = createVector(x, y, z);
@@ -27,9 +166,6 @@ class Entity {
   }
 }
 
-// ==========================================
-// PARTICLE CLASS (Debris generated from collisions)
-// ==========================================
 class Particle {
     constructor(x, y, z, vel) {
         this.pos = createVector(x, y, z);
@@ -53,9 +189,24 @@ class Particle {
     }
 }
 
-// ==========================================
-// CELESTIAL BODY CLASS
-// ==========================================
+class Crater {
+    constructor(u, v, size, initialLife, offsets) {
+        this.u = u;
+        this.v = v;
+        this.size = size;
+        this.life = initialLife; 
+        this.maxLife = initialLife;
+        this.offsets = offsets;
+    }
+    update() {
+        let fadeRate = map(this.size, 5, 30, 1.5, 0.2); 
+        this.life -= fadeRate;
+    }
+    isDead() {
+        return this.life <= 0;
+    }
+}
+
 class CelestialBody extends Entity {
   constructor(x, y, z, m) {
     super(x, y, z, m);
@@ -84,15 +235,17 @@ class CelestialBody extends Entity {
 
     this.texWidth = 256;
     this.texHeight = 128;
+    this.craters = [];
+    this.textureNeedsUpdate = true;
     
-    // We now just use one texture and bake impacts directly into it!
+    this.baseTex = createGraphics(this.texWidth, this.texHeight);
+    this.generateBaseTexture();
     this.tex = createGraphics(this.texWidth, this.texHeight);
-    this.generateTexture();
   }
 
-  generateTexture() {
-    this.tex.colorMode(HSB, 360, 100, 100, 100);
-    this.tex.noStroke();
+  generateBaseTexture() {
+    this.baseTex.colorMode(HSB, 360, 100, 100, 100);
+    this.baseTex.noStroke();
     let bx = random(1000); let by = random(1000);
 
     if (this.type === 'sun') {
@@ -105,8 +258,8 @@ class CelestialBody extends Entity {
         for (let px = 0; px < this.texWidth; px+=4) {
           let n = noise(bx + px*0.05, by + py*0.05);
           let b = map(n, 0, 1, 70, 100);
-          this.tex.fill(this.sunHue, this.sunSat + map(n,0,1,-10,10), b);
-          this.tex.rect(px, py, 4, 4);
+          this.baseTex.fill(this.sunHue, this.sunSat + map(n,0,1,-10,10), b);
+          this.baseTex.rect(px, py, 4, 4);
         }
       }
     } else if (this.type === 'gas_giant') {
@@ -117,46 +270,45 @@ class CelestialBody extends Entity {
           let band = sin((py * 0.15) + (turb * 4.0));
           let hOffset = map(turb, 0, 1, -15, 15);
           let finalHue = (baseHue + hOffset + 360) % 360;
-          this.tex.fill(finalHue, map(band, -1, 1, 40, 90), map(band, -1, 1, 40, 90));
-          this.tex.rect(px, py, 4, 4);
+          this.baseTex.fill(finalHue, map(band, -1, 1, 40, 90), map(band, -1, 1, 40, 90));
+          this.baseTex.rect(px, py, 4, 4);
         }
       }
     } else if (this.type === 'terrestrial') {
-      this.tex.colorMode(RGB, 255);
+      this.baseTex.colorMode(RGB, 255);
       for (let py = 0; py < this.texHeight; py+=4) {
         for (let px = 0; px < this.texWidth; px+=4) {
           let n = noise(bx + px*0.03, by + py*0.03);
           
           if (this.biome === 'earth') {
-            if (n < 0.55) this.tex.fill(15, 45, 80); 
-            else if (n < 0.6) this.tex.fill(40, 90, 120); 
-            else if (n < 0.8) this.tex.fill(60, 90, 40); 
-            else this.tex.fill(180, 170, 160); 
+            if (n < 0.55) this.baseTex.fill(15, 45, 80); 
+            else if (n < 0.6) this.baseTex.fill(40, 90, 120); 
+            else if (n < 0.8) this.baseTex.fill(60, 90, 40); 
+            else this.baseTex.fill(180, 170, 160); 
           } 
           else if (this.biome === 'mars') {
-            if (n < 0.4) this.tex.fill(120, 50, 30); 
-            else if (n < 0.8) this.tex.fill(180, 80, 50); 
-            else this.tex.fill(210, 190, 180); 
+            if (n < 0.4) this.baseTex.fill(120, 50, 30); 
+            else if (n < 0.8) this.baseTex.fill(180, 80, 50); 
+            else this.baseTex.fill(210, 190, 180); 
           }
           else if (this.biome === 'venus') {
             let vClouds = noise(bx + px*0.05, by + py*0.02);
             let c = map(vClouds, 0, 1, 150, 240);
-            this.tex.fill(c, c*0.9, c*0.6); 
+            this.baseTex.fill(c, c*0.9, c*0.6); 
           }
           else if (this.biome === 'ice') {
             let crack = abs(noise(bx + px*0.05, by + py*0.05) - 0.5);
-            if (crack < 0.03) this.tex.fill(20, 60, 100); 
-            else if (n < 0.6) this.tex.fill(160, 200, 220); 
-            else this.tex.fill(220, 240, 255); 
+            if (crack < 0.03) this.baseTex.fill(20, 60, 100); 
+            else if (n < 0.6) this.baseTex.fill(160, 200, 220); 
+            else this.baseTex.fill(220, 240, 255); 
           }
           else if (this.biome === 'exotic') {
-            if (n < 0.5) this.tex.fill(0, 255, 150); 
-            else if (n < 0.75) this.tex.fill(30, 10, 50); 
-            else this.tex.fill(10, 10, 10); 
+            if (n < 0.5) this.baseTex.fill(0, 255, 150); 
+            else if (n < 0.75) this.baseTex.fill(30, 10, 50); 
+            else this.baseTex.fill(10, 10, 10); 
           }
-          this.tex.rect(px, py, 4, 4);
+          this.baseTex.rect(px, py, 4, 4);
 
-          // Render volumetric clouds
           if (this.biome === 'earth' || this.biome === 'mars' || this.biome === 'exotic') {
             let cloudNoise = noise(bx + 100 + px*0.04, by + 100 + py*0.04);
             if (cloudNoise > 0.6) {
@@ -164,22 +316,22 @@ class CelestialBody extends Entity {
               let cR = 255, cG = 255, cB = 255;
               if (this.biome === 'mars') { cR = 200; cG = 180; cB = 160; }
               if (this.biome === 'exotic') { cR = 200; cG = 50; cB = 255; } 
-              this.tex.fill(cR, cG, cB, alpha);
-              this.tex.rect(px, py, 4, 4);
+              this.baseTex.fill(cR, cG, cB, alpha);
+              this.baseTex.rect(px, py, 4, 4);
             }
           }
         }
       }
     } else { 
-      this.tex.colorMode(RGB, 255);
+      this.baseTex.colorMode(RGB, 255);
       for (let py = 0; py < this.texHeight; py+=4) {
         for (let px = 0; px < this.texWidth; px+=4) {
           let n = noise(bx + px*0.08, by + py*0.08);
           let crater = abs(noise(bx + 50 + px*0.1, by + 50 + py*0.1) - 0.5);
           let gray = map(n, 0, 1, 60, 140);
           if (crater < 0.1) gray -= 30; 
-          this.tex.fill(gray, gray, gray);
-          this.tex.rect(px, py, 4, 4);
+          this.baseTex.fill(gray, gray, gray);
+          this.baseTex.rect(px, py, 4, 4);
         }
       }
     }
@@ -196,7 +348,6 @@ class CelestialBody extends Entity {
     gfx.endShape(CLOSE);
   }
 
-  // Bakes craters directly into the texture once, eliminating lag
   applyImpact(worldNormal, deltaV) {
     this.heat = constrain(this.heat + deltaV * 40, 0, 255);
     if (this.type === 'gas_giant' || this.type === 'sun') return;
@@ -205,31 +356,27 @@ class CelestialBody extends Entity {
     let u = 0.5 - (atan2(localNormal.z, localNormal.x) / TWO_PI);
     let v = 0.5 + (asin(constrain(localNormal.y, -1, 1)) / PI);
     let craterSize = constrain(deltaV * 8, 5, 30); 
+    let initialLife = map(craterSize, 5, 30, 300, 800); 
 
     let offsets = [];
     for (let a = 0; a < TWO_PI; a += PI / 4) offsets.push(random(0.7, 1.3));
 
-    this.tex.noStroke();
-    this.tex.colorMode(RGB, 255);
+    this.baseTex.blendMode(BLEND);
+    this.baseTex.noStroke();
+    this.baseTex.colorMode(RGB, 255);
     
-    // Draw across the seams
     let seamOffsets = [0, -this.texWidth, this.texWidth];
     for(let offsetX of seamOffsets) {
         let drawX = (u * this.texWidth) + offsetX;
         let py = v * this.texHeight;
-        
-        // 1. Semi-transparent dark scorch (stacks nicely)
-        this.tex.fill(10, 5, 5, 120); 
-        this.drawJaggedShape(this.tex, drawX, py, craterSize * 1.8, offsets);
-        
-        // 2. Additive glowing magma (Brightens intersections!)
-        this.tex.blendMode(ADD);
-        this.tex.fill(255, 60, 0, 100);
-        this.drawJaggedShape(this.tex, drawX, py, craterSize * 1.2, offsets);
-        this.tex.fill(255, 200, 150, 120);
-        this.drawJaggedShape(this.tex, drawX, py, craterSize * 0.5, offsets);
-        this.tex.blendMode(BLEND); // Reset
+        this.baseTex.fill(15, 10, 10, 180); 
+        this.drawJaggedShape(this.baseTex, drawX, py, craterSize * 1.5, offsets);
+        this.baseTex.fill(5, 5, 5, 220); 
+        this.drawJaggedShape(this.baseTex, drawX, py, craterSize * 0.8, offsets);
     }
+
+    this.craters.push(new Crater(u, v, craterSize, initialLife, offsets));
+    this.textureNeedsUpdate = true; 
   }
 
   update() {
@@ -240,6 +387,41 @@ class CelestialBody extends Entity {
     
     if (this.heat > 0.1) this.heat *= 0.985;
     else this.heat = 0;
+
+    let hasActiveCraters = false;
+    for (let i = this.craters.length - 1; i >= 0; i--) {
+        this.craters[i].update();
+        if (this.craters[i].isDead()) this.craters.splice(i, 1);
+        else hasActiveCraters = true;
+    }
+
+    if (this.textureNeedsUpdate || (this.craters.length === 0 && frameCount === 1)) {
+        this.tex.clear();
+        this.tex.image(this.baseTex, 0, 0); 
+        
+        if (hasActiveCraters) {
+            this.tex.blendMode(ADD); 
+            this.tex.noStroke();
+            this.tex.colorMode(RGB, 255);
+            
+            for (let c of this.craters) {
+                let px = c.u * this.texWidth;
+                let py = c.v * this.texHeight;
+                let alpha = constrain(map(c.life, 0, c.maxLife, 0, 255), 0, 255);
+                
+                let seamOffsets = [0, -this.texWidth, this.texWidth];
+                for(let offsetX of seamOffsets) {
+                    let drawX = px + offsetX;
+                    this.tex.fill(255, 60, 0, alpha * 0.8);
+                    this.drawJaggedShape(this.tex, drawX, py, c.size * 1.2, c.offsets);
+                    this.tex.fill(255, 200, 100, alpha);
+                    this.drawJaggedShape(this.tex, drawX, py, c.size * 0.6, c.offsets);
+                }
+            }
+            this.tex.blendMode(BLEND); 
+        }
+        this.textureNeedsUpdate = hasActiveCraters;
+    }
   }
 
   checkEdges(bSize) {
@@ -321,9 +503,6 @@ class CelestialBody extends Entity {
   }
 }
 
-// ==========================================
-// TARGET HOLE CLASS
-// ==========================================
 class Hole extends Entity {
   constructor(x, y, z, r) {
     super(x, y, z, Infinity); 
@@ -361,16 +540,15 @@ class Hole extends Entity {
   }
 }
 
-// ==========================================
-// ATTRACTOR CLASS
-// ==========================================
 class Attractor extends Entity {
-  constructor(x, y, z) {
+  constructor(x, y, z, vel) {
     super(x, y, z, 80);
+    this.vel = vel;
     this.timer = 180;
     this.isDead = false;
   }
   update() {
+    this.pos.add(this.vel);
     this.timer--;
     if (this.timer <= 0) this.isDead = true;
   }

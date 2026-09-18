@@ -1,44 +1,39 @@
+// 9/18/2026
+
 // ==========================================
 // CORE SIMULATION CLASS
-// Orchestrates N-Body physics, collisions, user input, and the rendering pipeline
 // ==========================================
 class Simulation {
   constructor(boxSize, initialBodies) {
     this.boxSize = boxSize;
-    this.G = 5.0; // Universal Gravitational Constant (scaled for simulation pacing)
+    this.G = 5.0; 
     this.score = 0;
     
-    // UI variables
-    this.showControls = true; // Used to fade out the interaction hint
+    this.showControls = true; 
     this.controlFade = 255;
-    this.shake = 0; // Tracks the current intensity of the camera shake
+    this.shake = 0; 
     
-    // Arrays to hold our physical entities
     this.bodies = [];
     this.attractors = [];
     this.particles = []; 
     
-    // The player's goal: A singularity locked to the back wall of the box
     this.hole = new Hole(0, 0, -this.boxSize / 2 + 1, 60);
 
-    // Explicitly track the camera and an offscreen 2D buffer for the HUD
+    this.ship = new Ship(0, 0, 0);
+
     this.cam = createCamera();
     this.hud = createGraphics(windowWidth, windowHeight);
     
-    // Track mouse start positions to distinguish between clicks and camera drags
     this.mouseStartX = 0;
     this.mouseStartY = 0;
 
-    // Initialize the solar system
     for (let i = 0; i < initialBodies; i++) {
       let m;
-      // Guarantee at least one of each major planetary type exists
-      if (i === 0) m = 12; // Sun
-      else if (i === 1) m = 6; // Gas Giant
-      else if (i === 2) m = 2.5; // Terrestrial Planet
-      else if (i === 3) m = 0.8; // Moon
+      if (i === 0) m = 12; 
+      else if (i === 1) m = 6; 
+      else if (i === 2) m = 2.5; 
+      else if (i === 3) m = 0.8; 
       else {
-        // Use a Log-Normal distribution for the rest of the universe.
         m = 0.5 + exp(randomGaussian(0.4, 0.7)); 
         m = constrain(m, 0.5, 20); 
       }
@@ -54,14 +49,17 @@ class Simulation {
     this.hud = createGraphics(windowWidth, windowHeight);
   }
 
-  // ==========================================
-  // PHYSICS & LOGIC UPDATE
-  // ==========================================
+  fireAttractor() {
+    let newAttractor = this.ship.fire();
+    this.attractors.push(newAttractor);
+  }
+
   update() {
-    // INTERACTION: Process WASD keyboard inputs to move the goal hole
+    this.ship.handleInput();
+    this.ship.update(this.boxSize);
+
     this.handleHoleMovement();
 
-    // UI Logic: Fade out the camera control hint
     if (mouseIsPressed && dist(mouseX, mouseY, this.mouseStartX, this.mouseStartY) > 5) {
         this.showControls = false;
     }
@@ -69,18 +67,14 @@ class Simulation {
         this.controlFade -= 5;
     }
 
-    // Update collision debris particles. Cap at 150 to prevent severe lag.
     for (let i = this.particles.length - 1; i >= 0; i--) {
       this.particles[i].update();
-      if (this.particles[i].isDead) {
-        this.particles.splice(i, 1);
-      }
+      if (this.particles[i].isDead) this.particles.splice(i, 1);
     }
     if (this.particles.length > 150) {
         this.particles.splice(0, this.particles.length - 150);
     }
 
-    // INTERACTION: Process the temporary gravity wells
     for (let i = this.attractors.length - 1; i >= 0; i--) {
       let a = this.attractors[i];
       a.update();
@@ -93,13 +87,44 @@ class Simulation {
       }
     }
 
-    // N-BODY PHYSICS LOOP
     for (let i = 0; i < this.bodies.length; i++) {
+      let b1 = this.bodies[i];
+
+      // --- SHIP-TO-PLANET COLLISIONS ---
+      let shipDistVec = p5.Vector.sub(b1.pos, this.ship.pos);
+      let shipDist = shipDistVec.mag();
+      let shipMinDist = b1.r + this.ship.radius;
+      
+      if (shipDist < shipMinDist && shipDist > 0) {
+          let overlap = shipMinDist - shipDist;
+          let normal = shipDistVec.copy().normalize();
+          
+          let totalMass = this.ship.mass + b1.mass;
+          let shipRatio = b1.mass / totalMass;
+          let b1Ratio = this.ship.mass / totalMass;
+          
+          this.ship.pos.sub(normal.copy().mult(overlap * shipRatio));
+          b1.pos.add(normal.copy().mult(overlap * b1Ratio));
+
+          let relativeVel = p5.Vector.sub(b1.vel, this.ship.vel);
+          let velAlongNormal = relativeVel.dot(normal);
+
+          if (velAlongNormal < 0) {
+              let impulse = -1.8 * velAlongNormal; 
+              impulse /= (1 / this.ship.mass + 1 / b1.mass);
+              let impulseVec = normal.copy().mult(impulse);
+              
+              this.ship.vel.sub(p5.Vector.div(impulseVec, this.ship.mass));
+              b1.vel.add(p5.Vector.div(impulseVec, b1.mass));
+              
+              this.shake = min(this.shake + impulse * 2.0, 25);
+          }
+      }
+
+      // --- PLANET-TO-PLANET COLLISIONS ---
       for (let j = i + 1; j < this.bodies.length; j++) {
-        let b1 = this.bodies[i];
         let b2 = this.bodies[j];
 
-        // 1. Calculate Gravity
         let distVec = p5.Vector.sub(b2.pos, b1.pos);
         let distSq = distVec.magSq();
         let d = sqrt(distSq);
@@ -111,7 +136,6 @@ class Simulation {
         b1.applyForce(force);
         b2.applyForce(force.copy().mult(-1)); 
 
-        // 2. Physical Elastic Collisions
         let minDist = b1.r + b2.r;
         
         if (d < minDist && d > 0) {
@@ -133,16 +157,14 @@ class Simulation {
             let deltaV1 = impulse / b1.mass;
             let deltaV2 = impulse / b2.mass;
 
-            // Apply impacts to map craters onto textures
             b1.applyImpact(normal.copy().mult(-1), deltaV1);
             b2.applyImpact(normal.copy(), deltaV2);
 
             b1.vel.sub(p5.Vector.div(impulseVec, b1.mass));
             b2.vel.add(p5.Vector.div(impulseVec, b2.mass));
 
-            // Generate physical particle debris
             let contactPoint = p5.Vector.lerp(b1.pos, b2.pos, b1.r / (b1.r + b2.r));
-            let numParticles = constrain(floor(impulse * 1.5), 2, 15);
+            let numParticles = constrain(floor(impulse * 1.5), 2, 15); 
             for(let p = 0; p < numParticles; p++) {
                 let scatter = p5.Vector.random3D().mult(random(1, 4));
                 let pVel = p5.Vector.add(normal.copy().mult(random(-2, 2)), scatter);
@@ -155,41 +177,55 @@ class Simulation {
       }
     }
 
-    // Update body positions, check bounds, and handle goal capture
     for (let i = this.bodies.length - 1; i >= 0; i--) {
       let b = this.bodies[i];
       b.update();
-      
       if (this.hole.checkCapture(b, this.boxSize)) {
         this.bodies.splice(i, 1);
         this.score++;
-        this.shake = min(this.shake + 5, 15); 
+        this.shake = min(this.shake + 5, 15);
         continue;
       }
       b.checkEdges(this.boxSize);
     }
   }
 
-  // ==========================================
-  // RENDERING PIPELINE
-  // ==========================================
   render() {
-    // Explicitly enforce default blend mode to prevent offscreen buffers from leaking state
-    blendMode(BLEND); 
-    
-    push(); // Begin camera translation matrix
-    
-    // Apply camera shake
+    let localCamOffset, worldCamOffset, worldCamPos, lookAtTarget;
+    let localFwd = createVector(0, 0, -1);
+    let worldFwd = this.ship.orientation.rotateVector(localFwd);
+    let localUp = createVector(0, 1, 0); 
+    let worldUp = this.ship.orientation.rotateVector(localUp);
+
+    if (firstPerson) {
+        worldCamPos = p5.Vector.add(this.ship.pos, p5.Vector.mult(worldFwd, this.ship.radius));
+        lookAtTarget = p5.Vector.add(worldCamPos, worldFwd);
+    } else {
+        let camDist = 80;
+        let camHeight = 25;
+        localCamOffset = createVector(0, -camHeight, camDist); 
+        worldCamOffset = this.ship.orientation.rotateVector(localCamOffset);
+        worldCamPos = p5.Vector.add(this.ship.pos, worldCamOffset);
+        lookAtTarget = this.ship.pos; 
+    }
+
     if (enableCameraShake && this.shake > 0.5) {
-      translate(random(-this.shake, this.shake), random(-this.shake, this.shake), random(-this.shake, this.shake));
+      worldCamPos.add(p5.Vector.random3D().mult(this.shake));
     }
     if (this.shake > 0) this.shake *= 0.9; 
 
-    // --- 1. LIGHTING PASS ---
+    camera(
+        worldCamPos.x, worldCamPos.y, worldCamPos.z, 
+        lookAtTarget.x, lookAtTarget.y, lookAtTarget.z, 
+        worldUp.x, worldUp.y, worldUp.z 
+    );
+    
+    // --- Z-PLANE CLIPPING FIX ---
+    // Sets the near-plane to 1 to prevent objects clipping out of existence when close to the camera
+    perspective(PI / 3, width / height, 1, 10000);
+
     ambientLight(25);
     let lightCount = 0;
-    
-    // Make Suns emit physical light
     for (let b of this.bodies) {
       if (b.type === 'sun' && lightCount < 3) { 
         colorMode(HSB, 360, 100, 100);
@@ -201,53 +237,44 @@ class Simulation {
     if (lightCount === 0) {
       directionalLight(220, 215, 210, 1, 0.5, -1);
     }
-    
     pointLight(150, 50, 255, this.hole.pos.x, this.hole.pos.y, this.hole.pos.z + 50);
 
-    // --- 2. OPAQUE GEOMETRY PASS ---
     this.drawWireframeBox();
     this.hole.render();
+    
+    if (!firstPerson) {
+        this.ship.render();
+    }
 
     for (let b of this.bodies) b.renderSolid();
     for (let a of this.attractors) a.render();
 
-    // --- 3. TRANSPARENT/VOLUMETRIC PASS (TRUE Z-SORTING) ---
-    // Instead of hacking the depth buffer, we calculate the distance to the camera
-    // and draw the transparent objects strictly back-to-front. 
+    drawingContext.depthMask(false); 
     noLights(); 
     
-    // Render particles first
+    blendMode(ADD);
     for (let p of this.particles) p.render();
-    
-    // Sort bodies by distance from camera (furthest first)
-    let cx = this.cam.eyeX;
-    let cy = this.cam.eyeY;
-    let cz = this.cam.eyeZ;
-    
-    let sortedBodies = [...this.bodies];
-    sortedBodies.sort((a, b) => {
-      let distA = (a.pos.x - cx)**2 + (a.pos.y - cy)**2 + (a.pos.z - cz)**2;
-      let distB = (b.pos.x - cx)**2 + (b.pos.y - cy)**2 + (b.pos.z - cz)**2;
-      return distB - distA; 
+    blendMode(BLEND);
+
+    let camPos = createVector(worldCamPos.x, worldCamPos.y, worldCamPos.z);
+    let sortedBodies = [...this.bodies].sort((a, b) => {
+        let distA = p5.Vector.dist(camPos, a.pos);
+        let distB = p5.Vector.dist(camPos, b.pos);
+        return distB - distA; 
     });
 
-    // Render atmospheres in sorted order
     for (let b of sortedBodies) b.renderAtmosphere();
-    
-    pop(); // End camera translation matrix
+    drawingContext.depthMask(true); 
 
-    // Render the Heads Up Display
     this.drawHUD();
   }
 
-  // Draws the neon 3D bounding box
   drawWireframeBox() {
     let hs = this.boxSize / 2;
     push();
     stroke(80, 100, 150, 60); 
     strokeWeight(1);
     noFill();
-    
     line(-hs, -hs, hs, hs, -hs, hs);
     line(hs, -hs, hs, hs, hs, hs);
     line(hs, hs, hs, -hs, hs, hs);
@@ -263,13 +290,12 @@ class Simulation {
     pop();
   }
 
-  // INTERACTION: WASD keyboard controls
   handleHoleMovement() {
     let speed = 5;
-    if (keyIsDown(65)) this.hole.moveX(-speed, this.boxSize); // A
-    if (keyIsDown(68)) this.hole.moveX(speed, this.boxSize);  // D
-    if (keyIsDown(87)) this.hole.moveY(-speed, this.boxSize); // W
-    if (keyIsDown(83)) this.hole.moveY(speed, this.boxSize);  // S
+    if (keyIsDown(65)) this.hole.moveX(-speed, this.boxSize); 
+    if (keyIsDown(68)) this.hole.moveX(speed, this.boxSize);  
+    if (keyIsDown(87)) this.hole.moveY(-speed, this.boxSize); 
+    if (keyIsDown(83)) this.hole.moveY(speed, this.boxSize);  
   }
 
   handleMousePress() {
@@ -277,7 +303,6 @@ class Simulation {
     this.mouseStartY = mouseY;
   }
 
-  // INTERACTION: 3D Raycasting
   handleMouseRelease() {
     if (dist(mouseX, mouseY, this.mouseStartX, this.mouseStartY) > 5) return;
     
@@ -349,11 +374,11 @@ class Simulation {
     let totKE = 0; let totPE = 0;
     for (let i = 0; i < this.bodies.length; i++) {
       let bi = this.bodies[i];
-      totKE += 0.5 * bi.mass * bi.vel.magSq(); 
+      totKE += 0.5 * bi.mass * bi.vel.magSq();
       for (let j = i + 1; j < this.bodies.length; j++) {
         let bj = this.bodies[j];
         let d = max(10, p5.Vector.dist(bi.pos, bj.pos));
-        totPE += -(this.G * bi.mass * bj.mass) / d; 
+        totPE += -(this.G * bi.mass * bj.mass) / d;
       }
     }
     
@@ -362,13 +387,11 @@ class Simulation {
     this.hud.text(`Score: ${this.score}`, 20, 30);
     this.hud.textSize(14); this.hud.textStyle(NORMAL);
     this.hud.text(`Bodies: ${this.bodies.length}`, 20, 55);
-    this.hud.text(`Total E: ${(totKE + totPE).toFixed(2)}`, 20, 80);
+    this.hud.text(`Ship Vel: ${this.ship.vel.mag().toFixed(1)}`, 20, 80);
     
     this.hud.textAlign(RIGHT, TOP);
-    this.hud.text(`Hole: WASD | Attractor: Click`, width - 20, 30);
-    this.hud.textSize(12);
-    this.hud.text(`Wall Attractors [var allowWallAttractors]: ${allowWallAttractors ? 'ON' : 'OFF'}`, width - 20, 50);
-    this.hud.text(`Camera Shake [var enableCameraShake]: ${enableCameraShake ? 'ON' : 'OFF'}`, width - 20, 70);
+    this.hud.text(`Move: WSADEQ | Turn: Arrows | Fire: Space`, width - 20, 30);
+    this.hud.text(`View: ${firstPerson ? '1st Person' : '3rd Person'} (var firstPerson)`, width - 20, 50);
     this.hud.textAlign(LEFT, BASELINE);
 
     push();

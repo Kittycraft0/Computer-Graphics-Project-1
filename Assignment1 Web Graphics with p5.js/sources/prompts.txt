@@ -109,3 +109,20 @@ it also is either fully happening with all transparency or not happening with an
 .
 okay now the effect is just always there instead of flickering on and off. whatever i guess i honestly kinda like it cuz it gives a sense of... something, idk. direction from when you're looking at it i guess.
 okay now i want to like sort of overhaul the game to make you play as like a third person ship that you control and the sense of direction is like controlled by quaternions so there's no gimbal lock in the rotation of the ship. turn the ship with the arrow keys. wsadeq to move forward backward left right up down. make it use velocity and have the velocity decay such that there is a natural asymptotic max speed. now pressing space also fires the attractors and they have an initial velocity of the ship's velocity plus an offset of sorts that makes the object propelled forwards, and moves at constant velocity and then after a bit like disappears, maybe after the same amount of time as already present.
+.
+Uncaught TypeError: this.hole.checkCapture is not a function
+index.html:1 Unsafe attempt to load URL file:///C:/Users/iwbmo/Desktop/College/2026-Fall/Computer%20Graphics/p5%20project%201/Assignment1%20Web%20Graphics%20with%20p5.js/code/code3/index.html from frame with URL file:///C:/Users/iwbmo/Desktop/College/2026-Fall/Computer%20Graphics/p5%20project%201/Assignment1%20Web%20Graphics%20with%20p5.js/code/code3/index.html. 'file:' URLs are treated as unique security origins.
+.
+up and down arrows are backwards and s and d are flipped and e and q are flipped, did you get the math wrong?
+is there not a ship model that i see and play as? i guess having a first person debug option would be cool but idk this was not exactly my vision.
+also make the player bounce off the planets when they try.
+also please make the direction change also happen by a similar velocity system. also turn down the player velocity so they don't feel massive compared to the planets.
+.
+make the ship bounce off of planets and turn the z plane clipping way down so the planets don't disappear as soon as i pass them. also the controls are still messed up. where in the code is that located so i can flip some negative signs and fix it myself?
+.
+the camera is still upside down i want to fix that first
+.
+okay now the camera looks kinda better positioned at least in the right orientation just up/down and e/q are flipped
+.
+okay great now make a little thruster particles balls things coming off the ship whenever it moves in a certain direction to act as a visual indicator of the ship moving in a direction, like thrusters fire things
+.
