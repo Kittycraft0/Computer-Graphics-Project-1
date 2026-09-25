@@ -118,6 +118,19 @@ class Simulation {
               this.shake = min(this.shake + impulse * 2.0, 25);
           }
       }
+      
+      // Ship gravity interactions
+      let sdistVec = p5.Vector.sub(this.ship.pos, b1.pos);
+      let sdistSq = sdistVec.magSq();
+      let sd = sqrt(sdistSq);
+      
+      let sdistForGravity = max(sdistSq, 100);
+      let sstrength = (this.G * b1.mass * this.ship.mass) / sdistForGravity;
+      let sforce = sdistVec.copy().setMag(sstrength);
+      
+      b1.applyForce(sforce);
+      print(sforce.copy().mag())
+      this.ship.applyForce(sforce.copy().mult(-1)); 
 
       for (let j = i + 1; j < this.bodies.length; j++) {
         let b2 = this.bodies[j];
@@ -384,6 +397,8 @@ class Simulation {
     this.hud.textSize(14); this.hud.textStyle(NORMAL);
     this.hud.text(`Bodies: ${this.bodies.length}`, 20, 55);
     //this.hud.text(`Ship Vel: ${this.ship.vel.mag().toFixed(1)}`, 20, 80);
+    this.hud.text(`Ship Vel: ${this.ship.vel.mag()}`, 20, 80);
+    this.hud.text(`Number of Craters: ${num_craters}`, 20, 105);
     
     this.hud.textAlign(RIGHT, TOP);
     this.hud.text(`Move: WSADEQ | Turn: Arrows | Fire: Space`, width - 20, 30);

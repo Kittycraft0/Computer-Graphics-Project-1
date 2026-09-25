@@ -59,19 +59,19 @@ class Entity {
   }
 }
 
-PLAYER_SHIP_MASS=1
+PLAYER_SHIP_MASS=0.2
 // ==========================================
 // PLAYER SHIP CLASS
 // ==========================================
 class Ship extends Entity{
     constructor(x, y, z) {
         super(x,y,z,PLAYER_SHIP_MASS)
-        this.pos = createVector(x, y, z);
-        this.vel = createVector(0, 0, 0);
+        //this.pos = createVector(x, y, z);
+        //this.vel = createVector(0, 0, 0);
         this.orientation = new Quaternion(); 
         
         this.radius = 8; 
-        this.mass = 0.2; 
+        //this.mass = 0.2; 
         
         this.angularVel = createVector(0, 0, 0);
         this.angularAccel = 0.004;
@@ -79,7 +79,8 @@ class Ship extends Entity{
         
         this.accelerationLimit = 0.08; 
         //this.drag = 0.97;
-        this.drag = 0.99; 
+        //this.drag = 0.99; 
+        this.drag = 1;
         
         this.exhaust = []; // Array to track thruster particles
         this.activeThrust = null; // Tracks the physical direction of flight input
@@ -149,7 +150,9 @@ class Ship extends Entity{
         }
 
         this.vel.mult(this.drag);
+        this.vel.add(this.acc);
         this.pos.add(this.vel);
+        this.acc.mult(0);
 
         let halfBox = bSize / 2;
         if (this.pos.x > halfBox - this.radius) { this.pos.x = halfBox - this.radius; this.vel.x *= -0.8; }
@@ -194,12 +197,15 @@ class ThrusterParticle {
     constructor(x, y, z, vel) {
         this.pos = createVector(x, y, z);
         this.vel = vel;
+        this.acc = createVector(0, 0, 0);
         this.life = random(10, 20);
         this.maxLife = this.life;
         this.size = random(1, 2.5);
     }
     update() {
+        this.vel.add(this.acc);
         this.pos.add(this.vel);
+        this.acc.mult(0);
         this.life--;
     }
     render() {
@@ -217,12 +223,15 @@ class Particle {
     constructor(x, y, z, vel) {
         this.pos = createVector(x, y, z);
         this.vel = vel;
+        this.acc = createVector(0, 0, 0);
         this.life = random(10, 30);
         this.maxLife = this.life;
         this.size = random(1, 3);
     }
     update() {
+        this.vel.add(this.acc);
         this.pos.add(this.vel);
+        this.acc.mult(0);
         this.life--;
     }
     render() {
@@ -235,7 +244,8 @@ class Particle {
         pop();
     }
 }
-
+CRATER_LIMIT=200
+num_craters=0
 class Crater {
     constructor(u, v, size, initialLife, offsets) {
         this.u = u;
@@ -422,8 +432,12 @@ class CelestialBody extends Entity {
         this.drawJaggedShape(this.baseTex, drawX, py, craterSize * 0.8, offsets);
     }
 
-    this.craters.push(new Crater(u, v, craterSize, initialLife, offsets));
-    this.textureNeedsUpdate = true; 
+    if(num_craters<CRATER_LIMIT){
+      num_craters+=1;
+      this.craters.push(new Crater(u, v, craterSize, initialLife, offsets));
+      this.textureNeedsUpdate = true;
+    }
+       
   }
 
   update() {
@@ -438,7 +452,10 @@ class CelestialBody extends Entity {
     let hasActiveCraters = false;
     for (let i = this.craters.length - 1; i >= 0; i--) {
         this.craters[i].update();
-        if (this.craters[i].isDead()) this.craters.splice(i, 1);
+        if (this.craters[i].isDead()){
+          this.craters.splice(i, 1);
+          num_craters-=1
+        }
         else hasActiveCraters = true;
     }
 
@@ -595,7 +612,9 @@ class Attractor extends Entity {
     this.isDead = false;
   }
   update() {
+    this.vel.add(this.acc);
     this.pos.add(this.vel);
+    this.acc.mult(0);
     this.timer--;
     if (this.timer <= 0) this.isDead = true;
   }
