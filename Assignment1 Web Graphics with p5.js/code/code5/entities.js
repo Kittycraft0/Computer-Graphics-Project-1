@@ -60,6 +60,12 @@ class Entity {
 }
 
 PLAYER_SHIP_MASS=0.2
+PLAYER_SCALE=0.1
+PLAYER_FIRE_SPEED=1
+BULLET_SCALE=PLAYER_SCALE
+THRUSTER_PARTICLE_SCALE=PLAYER_SCALE
+PLAYER_ACCELERATION_SCALE=PLAYER_SCALE
+THRUSTER_PARTICLE_VEL_SCALE=PLAYER_SCALE
 // ==========================================
 // PLAYER SHIP CLASS
 // ==========================================
@@ -70,14 +76,15 @@ class Ship extends Entity{
         //this.vel = createVector(0, 0, 0);
         this.orientation = new Quaternion(); 
         
-        this.radius = 8; 
+        //this.radius = 8;
+        this.radius = 8*PLAYER_SCALE; 
         //this.mass = 0.2; 
         
         this.angularVel = createVector(0, 0, 0);
         this.angularAccel = 0.004;
         this.angularDrag = 0.90; 
         
-        this.accelerationLimit = 0.08; 
+        this.accelerationLimit = 0.08*PLAYER_ACCELERATION_SCALE; 
         //this.drag = 0.97;
         //this.drag = 0.99; 
         this.drag = 1;
@@ -114,8 +121,20 @@ class Ship extends Entity{
     fire() {
         let localFwd = createVector(0, 0, -1);
         let worldFwd = this.orientation.rotateVector(localFwd);
+        
+        // Calculate spawn position just outside the nose of the ship
         let spawnPos = p5.Vector.add(this.pos, p5.Vector.mult(worldFwd, this.radius * 2.5));
-        let projVel = p5.Vector.add(this.vel, p5.Vector.mult(worldFwd, 20));
+        
+        // Calculate the projectile's forward velocity
+        let projVel = p5.Vector.add(this.vel, p5.Vector.mult(worldFwd, 20 * PLAYER_FIRE_SPEED));
+        
+        // --- NEW: RECOIL KICKBACK ---
+        // Firing a massive gravity well pushes the ship backward.
+        // We subtract from the ship's velocity along the forward vector.
+        // A recoil of 5.0 perfectly counters the immediate gravity pull of the attractor!
+        let recoilVelocity = 1.3 * PLAYER_FIRE_SPEED; 
+        this.vel.sub(p5.Vector.mult(worldFwd, recoilVelocity));
+        
         return new Attractor(spawnPos.x, spawnPos.y, spawnPos.z, projVel);
     }
 
@@ -129,11 +148,11 @@ class Ship extends Entity{
         if (this.activeThrust) {
             // Emits particles in the exact opposite direction of the ship's thrust movement
             let exhaustDir = this.activeThrust.copy().mult(-1);
-            let spawnPos = p5.Vector.add(this.pos, p5.Vector.mult(exhaustDir, this.radius * 1.5));
+            let spawnPos = p5.Vector.add(this.pos,this.vel, p5.Vector.mult(exhaustDir, this.radius * 1.5));
             
             for (let i = 0; i < 2; i++) { 
-                let scatter = p5.Vector.random3D().mult(0.5);
-                let pVel = p5.Vector.add(this.vel, p5.Vector.mult(exhaustDir, random(2, 5))).add(scatter);
+                let scatter = p5.Vector.random3D().mult(0.5*THRUSTER_PARTICLE_VEL_SCALE);
+                let pVel = p5.Vector.add(this.vel.copy(), p5.Vector.mult(exhaustDir, random(2, 5)*THRUSTER_PARTICLE_VEL_SCALE)).add(scatter);
                 this.exhaust.push(new ThrusterParticle(spawnPos.x, spawnPos.y, spawnPos.z, pVel));
             }
         }
@@ -200,7 +219,7 @@ class ThrusterParticle {
         this.acc = createVector(0, 0, 0);
         this.life = random(10, 20);
         this.maxLife = this.life;
-        this.size = random(1, 2.5);
+        this.size = random(1, 2.5)*THRUSTER_PARTICLE_SCALE;
     }
     update() {
         this.vel.add(this.acc);
@@ -603,7 +622,7 @@ class Hole extends Entity {
     pop();
   }
 }
-
+ATTRACTOR_SCALE=PLAYER_SCALE
 class Attractor extends Entity {
   constructor(x, y, z, vel) {
     super(x, y, z, 80);
@@ -632,7 +651,7 @@ class Attractor extends Entity {
     noFill();
     stroke(0, 255, 255, map(this.timer, 0, 180, 0, 255));
     strokeWeight(2);
-    sphere(15, 4, 2); 
+    sphere(15*ATTRACTOR_SCALE, 4, 2); 
     pop();
   }
 }

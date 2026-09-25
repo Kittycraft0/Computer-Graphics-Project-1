@@ -129,7 +129,7 @@ class Simulation {
       let sforce = sdistVec.copy().setMag(sstrength);
       
       b1.applyForce(sforce);
-      print(sforce.copy().mag())
+      //print(sforce.copy().mag())
       this.ship.applyForce(sforce.copy().mult(-1)); 
 
       for (let j = i + 1; j < this.bodies.length; j++) {
@@ -211,8 +211,8 @@ class Simulation {
         worldCamPos = p5.Vector.add(this.ship.pos, p5.Vector.mult(worldFwd, this.ship.radius));
         lookAtTarget = p5.Vector.add(worldCamPos, worldFwd);
     } else {
-        let camDist = 80;
-        let camHeight = 25;
+        let camDist = 80*PLAYER_SCALE;
+        let camHeight = 25*PLAYER_SCALE;
         localCamOffset = createVector(0, -camHeight, camDist); 
         worldCamOffset = this.ship.orientation.rotateVector(localCamOffset);
         worldCamPos = p5.Vector.add(this.ship.pos, worldCamOffset);
@@ -401,7 +401,7 @@ class Simulation {
     this.hud.text(`Number of Craters: ${num_craters}`, 20, 105);
     
     this.hud.textAlign(RIGHT, TOP);
-    this.hud.text(`Move: WSADEQ | Turn: Arrows | Fire: Space`, width - 20, 30);
+    this.hud.text(`Move: WSADEQ | Turn: Arrows | Fire Attractor: Space`, width - 20, 30);
     //this.hud.text(`View: ${firstPerson ? '1st Person' : '3rd Person'} (var firstPerson)`, width - 20, 50);
     this.hud.textAlign(LEFT, BASELINE);
 
