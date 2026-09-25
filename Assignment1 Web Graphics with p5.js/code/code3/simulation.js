@@ -286,11 +286,11 @@ class Simulation {
   }
 
   handleHoleMovement() {
-    let speed = 5;
-    if (keyIsDown(65)) this.hole.moveX(-speed, this.boxSize); 
-    if (keyIsDown(68)) this.hole.moveX(speed, this.boxSize);  
-    if (keyIsDown(87)) this.hole.moveY(-speed, this.boxSize); 
-    if (keyIsDown(83)) this.hole.moveY(speed, this.boxSize);  
+    //let speed = 5;
+    //if (keyIsDown(65)) this.hole.moveX(-speed, this.boxSize); 
+    //if (keyIsDown(68)) this.hole.moveX(speed, this.boxSize);  
+    //if (keyIsDown(87)) this.hole.moveY(-speed, this.boxSize); 
+    //if (keyIsDown(83)) this.hole.moveY(speed, this.boxSize);  
   }
 
   handleMousePress() {
@@ -356,12 +356,12 @@ class Simulation {
     this.hud.clear();
     
     if (this.controlFade > 0) {
-        this.hud.fill(255, this.controlFade);
-        this.hud.textSize(24);
-        this.hud.textStyle(BOLD);
-        this.hud.textAlign(CENTER, BOTTOM);
-        this.hud.text("Left Click + Drag to Rotate Camera", width / 2, height - 30);
-        this.hud.textAlign(LEFT, BASELINE); 
+        //this.hud.fill(255, this.controlFade);
+        //this.hud.textSize(24);
+        //this.hud.textStyle(BOLD);
+        //this.hud.textAlign(CENTER, BOTTOM);
+        //this.hud.text("Left Click + Drag to Rotate Camera", width / 2, height - 30);
+        ////this.hud.textAlign(LEFT, BASELINE); 
     }
 
     if (!debug) return;
@@ -382,11 +382,11 @@ class Simulation {
     this.hud.text(`Score: ${this.score}`, 20, 30);
     this.hud.textSize(14); this.hud.textStyle(NORMAL);
     this.hud.text(`Bodies: ${this.bodies.length}`, 20, 55);
-    this.hud.text(`Ship Vel: ${this.ship.vel.mag().toFixed(1)}`, 20, 80);
+    //this.hud.text(`Ship Vel: ${this.ship.vel.mag().toFixed(1)}`, 20, 80);
     
     this.hud.textAlign(RIGHT, TOP);
     this.hud.text(`Move: WSADEQ | Turn: Arrows | Fire: Space`, width - 20, 30);
-    this.hud.text(`View: ${firstPerson ? '1st Person' : '3rd Person'} (var firstPerson)`, width - 20, 50);
+    //this.hud.text(`View: ${firstPerson ? '1st Person' : '3rd Person'} (var firstPerson)`, width - 20, 50);
     this.hud.textAlign(LEFT, BASELINE);
 
     push();
