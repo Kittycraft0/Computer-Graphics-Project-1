@@ -83,6 +83,7 @@ class Simulation {
       for (let b of this.bodies) {
         a.applyGravity(b, this.G);
       }
+      a.applyGravity(this.ship, this.G);
     }
 
     for (let i = 0; i < this.bodies.length; i++) {

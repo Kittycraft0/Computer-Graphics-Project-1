@@ -47,11 +47,25 @@ function rotateAroundAxis(v, k, theta) {
   return p5.Vector.add(term1, p5.Vector.add(term2, term3));
 }
 
+class Entity {
+  constructor(x, y, z, m) {
+    this.pos = createVector(x, y, z);
+    this.vel = createVector(0, 0, 0);
+    this.acc = createVector(0, 0, 0);
+    this.mass = m;
+  }
+  applyForce(force) {
+    this.acc.add(p5.Vector.div(force, this.mass));
+  }
+}
+
+PLAYER_SHIP_MASS=1
 // ==========================================
 // PLAYER SHIP CLASS
 // ==========================================
-class Ship {
+class Ship extends Entity{
     constructor(x, y, z) {
+        super(x,y,z,PLAYER_SHIP_MASS)
         this.pos = createVector(x, y, z);
         this.vel = createVector(0, 0, 0);
         this.orientation = new Quaternion(); 
@@ -64,7 +78,8 @@ class Ship {
         this.angularDrag = 0.90; 
         
         this.accelerationLimit = 0.08; 
-        this.drag = 0.97; 
+        //this.drag = 0.97;
+        this.drag = 0.99; 
         
         this.exhaust = []; // Array to track thruster particles
         this.activeThrust = null; // Tracks the physical direction of flight input
@@ -171,17 +186,6 @@ class Ship {
     }
 }
 
-class Entity {
-  constructor(x, y, z, m) {
-    this.pos = createVector(x, y, z);
-    this.vel = createVector(0, 0, 0);
-    this.acc = createVector(0, 0, 0);
-    this.mass = m;
-  }
-  applyForce(force) {
-    this.acc.add(p5.Vector.div(force, this.mass));
-  }
-}
 
 // ==========================================
 // THRUSTER PARTICLE CLASS 
