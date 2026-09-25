@@ -18,9 +18,7 @@ class Simulation {
     this.particles = []; 
     
     this.hole = new Hole(0, 0, -this.boxSize / 2 + 1, 60);
-
     this.ship = new Ship(0, 0, 0);
-
     this.cam = createCamera();
     this.hud = createGraphics(windowWidth, windowHeight);
     
@@ -90,7 +88,6 @@ class Simulation {
     for (let i = 0; i < this.bodies.length; i++) {
       let b1 = this.bodies[i];
 
-      // --- SHIP-TO-PLANET COLLISIONS ---
       let shipDistVec = p5.Vector.sub(b1.pos, this.ship.pos);
       let shipDist = shipDistVec.mag();
       let shipMinDist = b1.r + this.ship.radius;
@@ -121,7 +118,6 @@ class Simulation {
           }
       }
 
-      // --- PLANET-TO-PLANET COLLISIONS ---
       for (let j = i + 1; j < this.bodies.length; j++) {
         let b2 = this.bodies[j];
 
@@ -220,8 +216,6 @@ class Simulation {
         worldUp.x, worldUp.y, worldUp.z 
     );
     
-    // --- Z-PLANE CLIPPING FIX ---
-    // Sets the near-plane to 1 to prevent objects clipping out of existence when close to the camera
     perspective(PI / 3, width / height, 1, 10000);
 
     ambientLight(25);
@@ -254,6 +248,7 @@ class Simulation {
     
     blendMode(ADD);
     for (let p of this.particles) p.render();
+    for (let p of this.ship.exhaust) p.render(); // Render ship thruster exhaust
     blendMode(BLEND);
 
     let camPos = createVector(worldCamPos.x, worldCamPos.y, worldCamPos.z);

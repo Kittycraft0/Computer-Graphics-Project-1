@@ -63,49 +63,66 @@ class Ship {
         this.angularAccel = 0.004;
         this.angularDrag = 0.90; 
         
-        // Lowered from 0.2 to give the ship more grounded weight and a lower top speed
         this.accelerationLimit = 0.08; 
         this.drag = 0.97; 
+        
+        this.exhaust = []; // Array to track thruster particles
+        this.activeThrust = null; // Tracks the physical direction of flight input
     }
 
     handleInput() {
-        // --- ROTATION (Arrow Keys) ---
-        if (keyIsDown(UP_ARROW)) this.angularVel.x -= this.angularAccel;     // Pitch Up
-        if (keyIsDown(DOWN_ARROW)) this.angularVel.x += this.angularAccel;   // Pitch Down
-        
-        if (keyIsDown(LEFT_ARROW)) this.angularVel.y += this.angularAccel;   // Yaw Left
-        if (keyIsDown(RIGHT_ARROW)) this.angularVel.y -= this.angularAccel;  // Yaw Right
+        if (keyIsDown(UP_ARROW)) this.angularVel.x -= this.angularAccel; 
+        if (keyIsDown(DOWN_ARROW)) this.angularVel.x += this.angularAccel; 
+        if (keyIsDown(LEFT_ARROW)) this.angularVel.y += this.angularAccel; 
+        if (keyIsDown(RIGHT_ARROW)) this.angularVel.y -= this.angularAccel;
 
-        // --- LINEAR MOVEMENT (WSADEQ) ---
         let localMove = createVector(0, 0, 0);
         
-        if (keyIsDown(87)) localMove.z -= 1; // W (Forward Thrust)
-        if (keyIsDown(83)) localMove.z += 1; // S (Backward Thrust)
-        
-        if (keyIsDown(65)) localMove.x -= 1; // A (Strafe Left)
-        if (keyIsDown(68)) localMove.x += 1; // D (Strafe Right)
-        
-        if (keyIsDown(69)) localMove.y -= 1; // E (Strafe Up)
-        if (keyIsDown(81)) localMove.y += 1; // Q (Strafe Down)
+        if (keyIsDown(87)) localMove.z -= 1; 
+        if (keyIsDown(83)) localMove.z += 1; 
+        if (keyIsDown(65)) localMove.x -= 1; 
+        if (keyIsDown(68)) localMove.x += 1; 
+        if (keyIsDown(69)) localMove.y -= 1; 
+        if (keyIsDown(81)) localMove.y += 1; 
 
         if (localMove.magSq() > 0) {
             localMove.normalize();
             let worldDir = this.orientation.rotateVector(localMove);
-            this.vel.add(worldDir.mult(this.accelerationLimit));
+            this.vel.add(worldDir.copy().mult(this.accelerationLimit));
+            this.activeThrust = worldDir.copy().normalize();
+        } else {
+            this.activeThrust = null; // Shut off thrusters if no keys are pressed
         }
     }
 
     fire() {
         let localFwd = createVector(0, 0, -1);
         let worldFwd = this.orientation.rotateVector(localFwd);
-        
         let spawnPos = p5.Vector.add(this.pos, p5.Vector.mult(worldFwd, this.radius * 2.5));
         let projVel = p5.Vector.add(this.vel, p5.Vector.mult(worldFwd, 20));
-        
         return new Attractor(spawnPos.x, spawnPos.y, spawnPos.z, projVel);
     }
 
     update(bSize) {
+        // Handle Thruster Particle Logic
+        for (let i = this.exhaust.length - 1; i >= 0; i--) {
+            this.exhaust[i].update();
+            if (this.exhaust[i].life <= 0) this.exhaust.splice(i, 1);
+        }
+
+        if (this.activeThrust) {
+            // Emits particles in the exact opposite direction of the ship's thrust movement
+            let exhaustDir = this.activeThrust.copy().mult(-1);
+            let spawnPos = p5.Vector.add(this.pos, p5.Vector.mult(exhaustDir, this.radius * 1.5));
+            
+            for (let i = 0; i < 2; i++) { 
+                let scatter = p5.Vector.random3D().mult(0.5);
+                let pVel = p5.Vector.add(this.vel, p5.Vector.mult(exhaustDir, random(2, 5))).add(scatter);
+                this.exhaust.push(new ThrusterParticle(spawnPos.x, spawnPos.y, spawnPos.z, pVel));
+            }
+        }
+
+        // Apply Flight Dynamics
         this.angularVel.mult(this.angularDrag);
         if (this.angularVel.x !== 0) {
             let qPitch = Quaternion.fromAxisAngle(createVector(1, 0, 0), this.angularVel.x);
@@ -164,6 +181,32 @@ class Entity {
   applyForce(force) {
     this.acc.add(p5.Vector.div(force, this.mass));
   }
+}
+
+// ==========================================
+// THRUSTER PARTICLE CLASS 
+// ==========================================
+class ThrusterParticle {
+    constructor(x, y, z, vel) {
+        this.pos = createVector(x, y, z);
+        this.vel = vel;
+        this.life = random(10, 20);
+        this.maxLife = this.life;
+        this.size = random(1, 2.5);
+    }
+    update() {
+        this.pos.add(this.vel);
+        this.life--;
+    }
+    render() {
+        push();
+        translate(this.pos.x, this.pos.y, this.pos.z);
+        noStroke();
+        let alpha = map(this.life, 0, this.maxLife, 0, 255);
+        fill(0, 200, 255, alpha); 
+        sphere(this.size, 6, 6); // Renders tiny spherical balls
+        pop();
+    }
 }
 
 class Particle {

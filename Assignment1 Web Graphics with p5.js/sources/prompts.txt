@@ -126,3 +126,4 @@ okay now the camera looks kinda better positioned at least in the right orientat
 .
 okay great now make a little thruster particles balls things coming off the ship whenever it moves in a certain direction to act as a visual indicator of the ship moving in a direction, like thrusters fire things
 .
+okay great now remove ship velocity dampers and make it fall with the gravity of the other planets so it makes it a bit disorienting for the player as they fall with the planetary objects around them
