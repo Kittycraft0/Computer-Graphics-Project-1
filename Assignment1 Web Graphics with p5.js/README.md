@@ -12,7 +12,7 @@ The interaction is multifaceted:
 
 ---
 ## ⚙️ Setup  
-Open the `index.html` file in any modern web browser to run the code. 
+Open the `index.html` file in code/code5 in any modern web browser to run the code. Folders with lower code numbers are working previous iterations saved before foundational changes to preserve their unique styles.
 - **Libraries used:** `p5.js`
 - **Controls:** Left Click + Drag to rotate the 3D camera. Scroll to zoom. Use WASD to move the capture gate. Click on planets to spawn attractors. You can open the developer console and set `debug = false` to hide the HUD.
 
