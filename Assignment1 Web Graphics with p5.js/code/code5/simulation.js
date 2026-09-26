@@ -397,8 +397,8 @@ class Simulation {
     this.hud.textSize(14); this.hud.textStyle(NORMAL);
     this.hud.text(`Bodies: ${this.bodies.length}`, 20, 55);
     //this.hud.text(`Ship Vel: ${this.ship.vel.mag().toFixed(1)}`, 20, 80);
-    this.hud.text(`Ship Vel: ${this.ship.vel.mag()}`, 20, 80);
-    this.hud.text(`Number of Craters: ${num_craters}`, 20, 105);
+    //this.hud.text(`Ship Vel: ${this.ship.vel.mag()}`, 20, 80);
+    //this.hud.text(`Number of Craters: ${num_craters}`, 20, 105);
     
     this.hud.textAlign(RIGHT, TOP);
     this.hud.text(`Move: WSADEQ | Turn: Arrows | Fire Attractor: Space`, width - 20, 30);
