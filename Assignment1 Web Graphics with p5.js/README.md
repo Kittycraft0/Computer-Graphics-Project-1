@@ -18,8 +18,8 @@ Open the `index.html` file in any modern web browser to run the code.
 
 ---
 ## 🔍 Reflection  
-If I were to extend this in the future, I would [Add your thoughts here! Maybe: Add a way to merge planets upon collision instead of bouncing them, or add a slider to control the universal gravitational constant]. 
+If I were to extend this in the future, I would add a way to merge planets upon collision instead of bouncing them, or add a slider to control the universal gravitational constant. 
 
-A major challenge during development was [Add your thoughts here! Maybe: Figuring out how to map a 3D world-space collision vector onto the 2D UV texture of a spinning sphere so craters showed up in the right spot]. 
+A major challenge during development was figuring out how to map a 3D world-space collision vector onto the 2D UV texture of a spinning sphere so craters showed up in the right spot. 
 
-Critiques/Opinions: [Add your opinion on p5.js here!]
+Critiques/Opinions: I think p5.js is very cool and heavily streamlines the graphics process so I can work much more on the physics and game functionality without needing to worry about making a graphics engine. It really opens up my options, especially with the ability to utilize dynamic lighting and live 3D shaders for use in a game.
